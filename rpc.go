@@ -2,7 +2,7 @@
 // Use of this source code is governed by an ISC
 // license that can be found in the LICENSE file.
 
-package btcharness
+package pfcharness
 
 import (
 	"fmt"
@@ -12,10 +12,10 @@ import (
 	"io/ioutil"
 )
 
-type BtcRPCClientFactory struct {
+type PfcRPCClientFactory struct {
 }
 
-func (f *BtcRPCClientFactory) NewRPCConnection(config coinharness.RPCConnectionConfig, handlers coinharness.RPCClientNotificationHandlers) (coinharness.RPCClient, error) {
+func (f *PfcRPCClientFactory) NewRPCConnection(config coinharness.RPCConnectionConfig, handlers coinharness.RPCClientNotificationHandlers) (coinharness.RPCClient, error) {
 	var h *rpcclient.NotificationHandlers
 	if handlers != nil {
 		h = handlers.(*rpcclient.NotificationHandlers)

@@ -5,12 +5,12 @@
 package memwallet
 
 import (
-	"github.com/jfixby/btcharness"
 	"github.com/jfixby/coinharness"
 	"github.com/jfixby/pin"
 	"github.com/picfight/pfcd/chaincfg"
 	"github.com/picfight/pfcd/chaincfg/chainhash"
 	"github.com/picfight/pfcd/wire"
+	"github.com/picfight/pfcharness"
 	"github.com/picfight/pfcutil"
 	"github.com/picfight/pfcutil/hdkeychain"
 )
@@ -53,7 +53,7 @@ func newMemWallet(net *chaincfg.Params, harnessHDSeed [chainhash.HashSize + 4]by
 	addrs := make(map[uint32]pfcutil.Address)
 	addrs[0] = coinbaseAddr
 
-	clientFac := &btcharness.BtcRPCClientFactory{}
+	clientFac := &pfcharness.PfcRPCClientFactory{}
 
 	return &InMemoryWallet{
 		net:               net,

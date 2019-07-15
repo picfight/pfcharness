@@ -1,4 +1,4 @@
-package btcharness
+package pfcharness
 
 import (
 	"errors"

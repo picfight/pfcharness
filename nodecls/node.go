@@ -6,12 +6,12 @@ package nodecls
 
 import (
 	"fmt"
-	"github.com/jfixby/btcharness"
 	"github.com/jfixby/coinharness"
 	"github.com/jfixby/coinharness/consolenode"
 	"github.com/jfixby/pin"
 	"github.com/jfixby/pin/commandline"
 	"github.com/picfight/pfcd/chaincfg"
+	"github.com/picfight/pfcharness"
 	"path/filepath"
 )
 
@@ -19,8 +19,8 @@ import (
 type ConsoleNodeFactory struct {
 	// NodeExecutablePathProvider returns path to the btcd executable
 	NodeExecutablePathProvider commandline.ExecutablePathProvider
-	ConsoleCommandCook         BtcdConsoleCommandCook
-	RPCClientFactory           btcharness.BtcRPCClientFactory
+	ConsoleCommandCook         PfcdConsoleCommandCook
+	RPCClientFactory           pfcharness.PfcRPCClientFactory
 }
 
 // NewNode creates and returns a fully initialized instance of the ConsoleNode.
@@ -45,11 +45,11 @@ func (factory *ConsoleNodeFactory) NewNode(config *coinharness.TestNodeConfig) c
 	return consolenode.NewConsoleNode(args)
 }
 
-type BtcdConsoleCommandCook struct {
+type PfcdConsoleCommandCook struct {
 }
 
 // cookArguments prepares arguments for the command-line call
-func (cook *BtcdConsoleCommandCook) CookArguments(par *consolenode.ConsoleCommandParams) map[string]interface{} {
+func (cook *PfcdConsoleCommandCook) CookArguments(par *consolenode.ConsoleCommandParams) map[string]interface{} {
 	result := make(map[string]interface{})
 
 	result["txindex"] = commandline.NoArgumentValue
