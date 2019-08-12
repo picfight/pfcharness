@@ -494,7 +494,7 @@ func (wallet *InMemoryWallet) CreateTransaction(args *coinharness.CreateTransact
 	wallet.Lock()
 	defer wallet.Unlock()
 
-	tx := wire.NewMsgTx(wire.TxVersion)
+	tx := wire.NewMsgTx(args.TxVersion)
 
 	// Tally up the total amount to be sent in order to perform coin
 	// selection shortly below.
