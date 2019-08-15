@@ -265,7 +265,7 @@ func createCoinbaseTx(coinbaseScript []byte, nextBlockHeight int32,
 	})
 	if len(mineTo) == 0 {
 		tx.AddTxOut(&wire.TxOut{
-			Value:    blockchain.CalcBlockSubsidy(nextBlockHeight, net),
+			Value:    blockchain.CalcBlockSubsidy(nextBlockHeight, net),//bump
 			PkScript: pkScript,
 		})
 	} else {
