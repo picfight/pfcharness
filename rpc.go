@@ -36,5 +36,55 @@ func (f *PfcRPCClientFactory) NewRPCConnection(config coinharness.RPCConnectionC
 		HTTPPostMode:         false,
 	}
 
-	return rpcclient.New(cfg, h)
+	return NewRPCClient(cfg, h)
+}
+
+type PFCRPCClient struct {
+	rpc *rpcclient.Client
+}
+
+func (c *PFCRPCClient) AddNode(args *coinharness.AddNodeArguments) error {
+	return c.rpc.AddNode(args.TargetAddr, args.Command.(rpcclient.AddNodeCommand))
+}
+
+func (c *PFCRPCClient) Disconnect() () {
+	c.rpc.Disconnect()
+}
+
+func (c *PFCRPCClient) Shutdown() () {
+	c.rpc.Shutdown()
+}
+
+func (c *PFCRPCClient) NotifyBlocks() (error) {
+	return c.rpc.NotifyBlocks()
+}
+
+func (c *PFCRPCClient) GetBlockCount() (int64, error) {
+	return c.rpc.GetBlockCount()
+}
+
+func (c *PFCRPCClient) GetPeerInfo() ([]coinharness.PeerInfo, error) {
+	pif, err := c.rpc.GetPeerInfo()
+	if err != nil {
+		return nil, err
+	}
+
+	l := []coinharness.PeerInfo{}
+	for _, i := range pif {
+		inf := coinharness.PeerInfo{}
+		inf.Addr = i.Addr
+		l = append(l, inf)
+
+	}
+	return l, nil
+}
+
+func NewRPCClient(config *rpcclient.ConnConfig, handlers *rpcclient.NotificationHandlers) (coinharness.RPCClient, error) {
+	legacy, err := rpcclient.New(config, handlers)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &PFCRPCClient{rpc: legacy}
+	return result, nil
 }
