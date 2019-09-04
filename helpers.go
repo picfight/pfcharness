@@ -3,6 +3,7 @@ package pfcharness
 import (
 	"errors"
 	"fmt"
+	"github.com/jfixby/coinharness"
 	"github.com/jfixby/pin"
 	"github.com/picfight/pfcd/rpcclient"
 	"math"
@@ -265,7 +266,7 @@ func createCoinbaseTx(coinbaseScript []byte, nextBlockHeight int32,
 	})
 	if len(mineTo) == 0 {
 		tx.AddTxOut(&wire.TxOut{
-			Value:    blockchain.CalcBlockSubsidy(nextBlockHeight, net),//bump
+			Value:    blockchain.CalcBlockSubsidy(nextBlockHeight, net), //bump
 			PkScript: pkScript,
 		})
 	} else {
@@ -274,4 +275,32 @@ func createCoinbaseTx(coinbaseScript []byte, nextBlockHeight int32,
 		}
 	}
 	return pfcutil.NewTx(tx), nil
+}
+
+func TransactionTxToRaw(tx *coinharness.CreatedTransactionTx) *wire.MsgTx {
+	ttx := &wire.MsgTx{
+		Version:  tx.Version,
+		LockTime: tx.LockTime,
+	}
+	for _, ti := range tx.TxIn {
+		ttx.TxIn = append(ttx.TxIn, ti.(*wire.TxIn))
+	}
+	for _, to := range tx.TxOut {
+		ttx.TxOut = append(ttx.TxOut, to.(*wire.TxOut))
+	}
+	return ttx
+}
+
+func TransactionTxFromRaw(ttx *wire.MsgTx) *coinharness.CreatedTransactionTx {
+	tx := &coinharness.CreatedTransactionTx{
+		Version:  ttx.Version,
+		LockTime: ttx.LockTime,
+	}
+	for _, ti := range ttx.TxIn {
+		tx.TxIn = append(tx.TxIn, ti)
+	}
+	for _, to := range ttx.TxOut {
+		tx.TxOut = append(tx.TxOut, to)
+	}
+	return tx
 }

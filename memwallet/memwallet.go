@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/jfixby/coinharness"
 	"github.com/jfixby/pin"
+	"github.com/picfight/pfcharness"
 	"sync"
 	"time"
 
@@ -453,8 +454,8 @@ func (wallet *InMemoryWallet) SendOutputs(args *coinharness.SendOutputsArgs) (co
 	if err != nil {
 		return nil, err
 	}
-
-	return wallet.nodeRPC.SendRawTransaction(tx.(*wire.MsgTx), true)
+	ttx := pfcharness.TransactionTxToRaw(tx)
+	return wallet.nodeRPC.SendRawTransaction(ttx, true)
 }
 
 // SendOutputsWithoutChange creates and sends a transaction that pays to the
@@ -480,7 +481,7 @@ func (wallet *InMemoryWallet) SendOutputsWithoutChange(outputs []*wire.TxOut,
 		return nil, err
 	}
 
-	return wallet.nodeRPC.SendRawTransaction(tx.(*wire.MsgTx), true)
+	return wallet.nodeRPC.SendRawTransaction(pfcharness.TransactionTxToRaw(tx), true)
 }
 
 // CreateTransaction returns a fully signed transaction paying to the specified
@@ -489,7 +490,7 @@ func (wallet *InMemoryWallet) SendOutputsWithoutChange(outputs []*wire.TxOut,
 // include a change output indicated by the change boolean.
 //
 // This function is safe for concurrent access.
-func (wallet *InMemoryWallet) CreateTransaction(args *coinharness.CreateTransactionArgs) (coinharness.CreatedTransactionTx, error) {
+func (wallet *InMemoryWallet) CreateTransaction(args *coinharness.CreateTransactionArgs) (*coinharness.CreatedTransactionTx, error) {
 
 	wallet.Lock()
 	defer wallet.Unlock()
@@ -546,7 +547,7 @@ func (wallet *InMemoryWallet) CreateTransaction(args *coinharness.CreateTransact
 		utxo.isLocked = true
 	}
 
-	return tx, nil
+	return pfcharness.TransactionTxFromRaw(tx), nil
 }
 
 // UnlockOutputs unlocks any outputs which were previously locked due to
