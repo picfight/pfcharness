@@ -43,7 +43,7 @@ func (o *CreatedTransactionTx) TxHash() coinharness.Hash {
 
 func (o *CreatedTransactionTx) TxIn() (result []coinharness.InputTx) {
 	result = []coinharness.InputTx{}
-	for _, ti := range o.txOut {
+	for _, ti := range o.txIn {
 		result = append(result, ti)
 	}
 	return
