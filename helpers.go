@@ -286,7 +286,7 @@ func TransactionTxToRaw(tx *coinharness.CreatedTransactionTx) *wire.MsgTx {
 		ttx.TxIn = append(ttx.TxIn, ti.(*wire.TxIn))
 	}
 	for _, to := range tx.TxOut {
-		ttx.TxOut = append(ttx.TxOut, to.(*wire.TxOut))
+		ttx.TxOut = append(ttx.TxOut, to.(*OutputTx).Parent)
 	}
 	return ttx
 }
@@ -300,7 +300,7 @@ func TransactionTxFromRaw(ttx *wire.MsgTx) *coinharness.CreatedTransactionTx {
 		tx.TxIn = append(tx.TxIn, ti)
 	}
 	for _, to := range ttx.TxOut {
-		tx.TxOut = append(tx.TxOut, to)
+		tx.TxOut = append(tx.TxOut, &OutputTx{to})
 	}
 	return tx
 }

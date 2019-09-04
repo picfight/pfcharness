@@ -468,7 +468,7 @@ func (wallet *InMemoryWallet) SendOutputsWithoutChange(outputs []*wire.TxOut,
 	b := make([]coinharness.OutputTx, len(outputs))
 	{
 		for i := range outputs {
-			b[i] = outputs[i]
+			b[i] = &pfcharness.OutputTx{outputs[i]}
 		}
 	}
 	args := &coinharness.CreateTransactionArgs{
@@ -501,8 +501,8 @@ func (wallet *InMemoryWallet) CreateTransaction(args *coinharness.CreateTransact
 	// selection shortly below.
 	var outputAmt pfcutil.Amount
 	for _, output := range args.Outputs {
-		outputAmt += pfcutil.Amount(output.(*wire.TxOut).Value)
-		tx.AddTxOut(output.(*wire.TxOut))
+		outputAmt += pfcutil.Amount(output.Value())
+		tx.AddTxOut(output.(*pfcharness.OutputTx).Parent)
 	}
 
 	// Attempt to fund the transaction with spendable utxos.
