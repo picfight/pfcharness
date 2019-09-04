@@ -490,7 +490,7 @@ func (wallet *InMemoryWallet) SendOutputsWithoutChange(outputs []*wire.TxOut,
 // include a change output indicated by the change boolean.
 //
 // This function is safe for concurrent access.
-func (wallet *InMemoryWallet) CreateTransaction(args *coinharness.CreateTransactionArgs) (*coinharness.CreatedTransactionTx, error) {
+func (wallet *InMemoryWallet) CreateTransaction(args *coinharness.CreateTransactionArgs) (coinharness.CreatedTransactionTx, error) {
 
 	wallet.Lock()
 	defer wallet.Unlock()
