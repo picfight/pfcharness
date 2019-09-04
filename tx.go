@@ -22,37 +22,33 @@ type InputTx struct {
 }
 
 type CreatedTransactionTx struct {
-	version  int32
-	txIn     []*InputTx
-	txOut    []*OutputTx
-	lockTime uint32
-	txHash   coinharness.Hash
+	Parent *wire.MsgTx
 }
 
 func (o *CreatedTransactionTx) LockTime() uint32 {
-	return o.lockTime
+	return o.Parent.LockTime
 }
 
 func (o *CreatedTransactionTx) Version() int32 {
-	return o.version
+	return o.Parent.Version
 }
 
 func (o *CreatedTransactionTx) TxHash() coinharness.Hash {
-	return o.txHash
+	return o.Parent.TxHash()
 }
 
 func (o *CreatedTransactionTx) TxIn() (result []coinharness.InputTx) {
 	result = []coinharness.InputTx{}
-	for _, ti := range o.txIn {
-		result = append(result, ti)
+	for _, ti := range o.Parent.TxIn {
+		result = append(result, &InputTx{ti})
 	}
 	return
 }
 
 func (o *CreatedTransactionTx) TxOut() (result []coinharness.OutputTx) {
 	result = []coinharness.OutputTx{}
-	for _, ti := range o.txOut {
-		result = append(result, ti)
+	for _, ti := range o.Parent.TxOut {
+		result = append(result, &OutputTx{ti})
 	}
 	return
 }
