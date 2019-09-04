@@ -277,30 +277,30 @@ func createCoinbaseTx(coinbaseScript []byte, nextBlockHeight int32,
 	return pfcutil.NewTx(tx), nil
 }
 
-func TransactionTxToRaw(tx *coinharness.CreatedTransactionTx) *wire.MsgTx {
+func TransactionTxToRaw(tx coinharness.CreatedTransactionTx) *wire.MsgTx {
 	ttx := &wire.MsgTx{
-		Version:  tx.Version,
-		LockTime: tx.LockTime,
+		Version:  tx.Version(),
+		LockTime: tx.LockTime(),
 	}
-	for _, ti := range tx.TxIn {
+	for _, ti := range tx.TxIn() {
 		ttx.TxIn = append(ttx.TxIn, ti.(*wire.TxIn))
 	}
-	for _, to := range tx.TxOut {
+	for _, to := range tx.TxOut() {
 		ttx.TxOut = append(ttx.TxOut, to.(*OutputTx).Parent)
 	}
 	return ttx
 }
 
-func TransactionTxFromRaw(ttx *wire.MsgTx) *coinharness.CreatedTransactionTx {
-	tx := &coinharness.CreatedTransactionTx{
-		Version:  ttx.Version,
-		LockTime: ttx.LockTime,
+func TransactionTxFromRaw(ttx *wire.MsgTx) coinharness.CreatedTransactionTx {
+	tx := &CreatedTransactionTx{
+		version:  ttx.Version,
+		lockTime: ttx.LockTime,
 	}
 	for _, ti := range ttx.TxIn {
-		tx.TxIn = append(tx.TxIn, ti)
+		tx.txIn = append(tx.txIn, &InputTx{ti})
 	}
 	for _, to := range ttx.TxOut {
-		tx.TxOut = append(tx.TxOut, &OutputTx{to})
+		tx.txOut = append(tx.txOut, &OutputTx{to})
 	}
 	return tx
 }
