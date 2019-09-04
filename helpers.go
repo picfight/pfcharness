@@ -283,7 +283,7 @@ func TransactionTxToRaw(tx coinharness.CreatedTransactionTx) *wire.MsgTx {
 		LockTime: tx.LockTime(),
 	}
 	for _, ti := range tx.TxIn() {
-		ttx.TxIn = append(ttx.TxIn, ti.(*wire.TxIn))
+		ttx.TxIn = append(ttx.TxIn, ti.(*InputTx).Parent)
 	}
 	for _, to := range tx.TxOut() {
 		ttx.TxOut = append(ttx.TxOut, to.(*OutputTx).Parent)
