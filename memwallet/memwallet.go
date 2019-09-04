@@ -559,7 +559,7 @@ func (wallet *InMemoryWallet) UnlockOutputs(inputs []coinharness.InputTx) {
 	defer wallet.Unlock()
 
 	for _, input := range inputs {
-		utxo, ok := wallet.utxos[input.(*wire.TxIn).PreviousOutPoint]
+		utxo, ok := wallet.utxos[input.PreviousOutPoint().(wire.OutPoint)]
 		if !ok {
 			continue
 		}

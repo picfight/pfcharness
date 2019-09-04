@@ -5,6 +5,7 @@ import (
 	"github.com/picfight/pfcd/wire"
 )
 
+//------------------------------------------
 type OutputTx struct {
 	Parent *wire.TxOut
 }
@@ -17,10 +18,16 @@ func (o *OutputTx) Value() int64 {
 	return o.Parent.Value
 }
 
+//------------------------------------------
 type InputTx struct {
 	Parent *wire.TxIn
 }
 
+func (o *InputTx) PreviousOutPoint() coinharness.OutPoint {
+	return o.Parent.PreviousOutPoint
+}
+
+//------------------------------------------
 type CreatedTransactionTx struct {
 	Parent *wire.MsgTx
 }
