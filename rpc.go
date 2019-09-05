@@ -90,7 +90,7 @@ func (c *PFCRPCClient) GetRawMempool() (result []coinharness.Hash, e error) {
 }
 
 func (c *PFCRPCClient) SendRawTransaction(tx coinharness.CreatedTransactionTx, allowHighFees bool) (result coinharness.Hash, e error) {
-	txx := transactionTxToRaw(tx)
+	txx := TransactionTxToRaw(tx)
 	r, e := c.rpc.SendRawTransaction(txx, allowHighFees)
 	return r, e
 }
