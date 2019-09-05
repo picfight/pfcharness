@@ -63,6 +63,17 @@ func (c *PFCRPCClient) GetBlockCount() (int64, error) {
 	return c.rpc.GetBlockCount()
 }
 
+func (c *PFCRPCClient) Generate(blocks uint32) (result []coinharness.Hash, e error) {
+	list, e := c.rpc.Generate(blocks)
+	if e != nil {
+		return nil, e
+	}
+	for e, _ := range list {
+		result = append(result, e)
+	}
+	return result, nil
+}
+
 func (c *PFCRPCClient) Internal() (interface{}) {
 	return c.rpc
 }
