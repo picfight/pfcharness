@@ -64,7 +64,7 @@ type InMemoryWallet struct {
 
 	net *chaincfg.Params
 
-	nodeRPC *rpcclient.Client
+	nodeRPC coinharness.RPCClient
 
 	sync.RWMutex
 	RPCClientFactory coinharness.RPCClientFactory
@@ -107,7 +107,7 @@ func (wallet *InMemoryWallet) Start(args *coinharness.TestWalletStartArgs) error
 
 	//handlers.OnClientConnected = wallet.onDcrdConnect
 	client := coinharness.NewRPCConnection(wallet.RPCClientFactory, args.NodeRPCConfig, 5, handlers)
-	wallet.nodeRPC = client.Internal().(*rpcclient.Client)
+	wallet.nodeRPC = client
 	pin.AssertNotNil("nodeRPC", wallet.nodeRPC)
 
 	// Filter transactions that pay to the coinbase associated with the
@@ -454,8 +454,7 @@ func (wallet *InMemoryWallet) SendOutputs(args *coinharness.SendOutputsArgs) (co
 	if err != nil {
 		return nil, err
 	}
-	ttx := pfcharness.TransactionTxToRaw(tx)
-	return wallet.nodeRPC.SendRawTransaction(ttx, true)
+	return wallet.nodeRPC.SendRawTransaction(tx, true)
 }
 
 // SendOutputsWithoutChange creates and sends a transaction that pays to the
@@ -481,7 +480,8 @@ func (wallet *InMemoryWallet) SendOutputsWithoutChange(outputs []*wire.TxOut,
 		return nil, err
 	}
 
-	return wallet.nodeRPC.SendRawTransaction(pfcharness.TransactionTxToRaw(tx), true)
+	r, x := wallet.nodeRPC.SendRawTransaction(tx, true)
+	return r.(*chainhash.Hash), x
 }
 
 // CreateTransaction returns a fully signed transaction paying to the specified

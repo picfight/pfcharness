@@ -89,6 +89,12 @@ func (c *PFCRPCClient) GetRawMempool() (result []coinharness.Hash, e error) {
 	return result, nil
 }
 
+func (c *PFCRPCClient) SendRawTransaction(tx coinharness.CreatedTransactionTx, allowHighFees bool) (result coinharness.Hash, e error) {
+	txx := transactionTxToRaw(tx)
+	r, e := c.rpc.SendRawTransaction(txx, allowHighFees)
+	return r, e
+}
+
 func (c *PFCRPCClient) GetPeerInfo() ([]coinharness.PeerInfo, error) {
 	pif, err := c.rpc.GetPeerInfo()
 	if err != nil {
