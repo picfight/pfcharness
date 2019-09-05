@@ -68,7 +68,7 @@ func (c *PFCRPCClient) Generate(blocks uint32) (result []coinharness.Hash, e err
 	if e != nil {
 		return nil, e
 	}
-	for el, _ := range list {
+	for _, el := range list {
 		result = append(result, el)
 	}
 	return result, nil
@@ -83,7 +83,7 @@ func (c *PFCRPCClient) GetRawMempool() (result []coinharness.Hash, e error) {
 	if e != nil {
 		return nil, e
 	}
-	for el, _ := range list {
+	for _, el := range list {
 		result = append(result, el)
 	}
 	return result, nil
