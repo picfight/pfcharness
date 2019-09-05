@@ -36,7 +36,7 @@ type GenerateBlockArgs struct {
 // transactions to be mined. Additionally, a custom block version can be set by
 // the caller. An uninitialized time.Time should be used for the
 // blockTime parameter if one doesn't wish to set a custom time.
-func GenerateAndSubmitBlock(client *rpcclient.Client, args *GenerateBlockArgs) (*pfcutil.Block, error) {
+func GenerateAndSubmitBlock(client coinharness.RPCClient, args *GenerateBlockArgs) (*pfcutil.Block, error) {
 	pin.AssertTrue("args.MineTo is empty", len(args.MineTo) == 0)
 	return GenerateAndSubmitBlockWithCustomCoinbaseOutputs(client, args)
 }
@@ -53,7 +53,7 @@ func GenerateAndSubmitBlock(client *rpcclient.Client, args *GenerateBlockArgs) (
 // submitted; thus, it is the caller's responsibility to ensure that the outputs
 // are correct. If the list is empty, the coinbase reward goes to the wallet
 // managed by the Harness.
-func GenerateAndSubmitBlockWithCustomCoinbaseOutputs(client *rpcclient.Client, args *GenerateBlockArgs) (*pfcutil.Block, error) {
+func GenerateAndSubmitBlockWithCustomCoinbaseOutputs(client coinharness.RPCClient, args *GenerateBlockArgs) (*pfcutil.Block, error) {
 	txns := args.Txns
 	blockVersion := args.BlockVersion
 	pin.AssertTrue(fmt.Sprintf("Incorrect blockVersion(%v)", blockVersion), blockVersion > 0)
@@ -64,11 +64,11 @@ func GenerateAndSubmitBlockWithCustomCoinbaseOutputs(client *rpcclient.Client, a
 
 	pin.AssertTrue("blockVersion != -1", blockVersion != -1)
 
-	prevBlockHash, prevBlockHeight, err := client.GetBestBlock()
+	prevBlockHash, prevBlockHeight, err := client.Internal().(*rpcclient.Client).GetBestBlock()
 	if err != nil {
 		return nil, err
 	}
-	mBlock, err := client.GetBlock(prevBlockHash)
+	mBlock, err := client.Internal().(*rpcclient.Client).GetBlock(prevBlockHash)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func GenerateAndSubmitBlockWithCustomCoinbaseOutputs(client *rpcclient.Client, a
 	}
 
 	// Submit the block to the simnet node.
-	if err := client.SubmitBlock(newBlock, nil); err != nil {
+	if err := client.Internal().(*rpcclient.Client).SubmitBlock(newBlock, nil); err != nil {
 		return nil, err
 	}
 
