@@ -277,7 +277,7 @@ func createCoinbaseTx(coinbaseScript []byte, nextBlockHeight int32,
 	return pfcutil.NewTx(tx), nil
 }
 
-func TransactionTxToRaw(tx coinharness.CreatedTransactionTx) *wire.MsgTx {
+func transactionTxToRaw(tx coinharness.CreatedTransactionTx) *wire.MsgTx {
 	ttx := &wire.MsgTx{
 		Version:  tx.Version(),
 		LockTime: tx.LockTime(),
@@ -291,7 +291,7 @@ func TransactionTxToRaw(tx coinharness.CreatedTransactionTx) *wire.MsgTx {
 	return ttx
 }
 
-func TransactionTxFromRaw(ttx *wire.MsgTx) coinharness.CreatedTransactionTx {
+func transactionTxFromRaw(ttx *wire.MsgTx) coinharness.CreatedTransactionTx {
 	tx := &CreatedTransactionTx{
 		Parent: ttx,
 	}
