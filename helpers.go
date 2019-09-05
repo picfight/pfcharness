@@ -277,7 +277,7 @@ func createCoinbaseTx(coinbaseScript []byte, nextBlockHeight int32,
 	return pfcutil.NewTx(tx), nil
 }
 
-func transactionTxToRaw(tx coinharness.CreatedTransactionTx) *wire.MsgTx {
+func TransactionTxToRaw(tx coinharness.CreatedTransactionTx) *wire.MsgTx {
 	ttx := &wire.MsgTx{
 		Version:  tx.Version(),
 		LockTime: tx.LockTime(),
