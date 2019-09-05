@@ -106,8 +106,8 @@ func (wallet *InMemoryWallet) Start(args *coinharness.TestWalletStartArgs) error
 	}
 
 	//handlers.OnClientConnected = wallet.onDcrdConnect
-
-	wallet.nodeRPC = coinharness.NewRPCConnection(wallet.RPCClientFactory, args.NodeRPCConfig, 5, handlers).(*rpcclient.Client)
+	client := coinharness.NewRPCConnection(wallet.RPCClientFactory, args.NodeRPCConfig, 5, handlers)
+	wallet.nodeRPC = client.Internal().(*rpcclient.Client)
 	pin.AssertNotNil("nodeRPC", wallet.nodeRPC)
 
 	// Filter transactions that pay to the coinbase associated with the
