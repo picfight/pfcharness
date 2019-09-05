@@ -63,6 +63,17 @@ func (c *PFCRPCClient) GetBlockCount() (int64, error) {
 	return c.rpc.GetBlockCount()
 }
 
+func (c *PFCRPCClient) GetRawMempool() (result []coinharness.Hash, e error) {
+	list, e := c.rpc.GetRawMempool()
+	if e != nil {
+		return nil, e
+	}
+	for e, _ := range list {
+		result = append(result, e)
+	}
+	return result, nil
+}
+
 func (c *PFCRPCClient) GetPeerInfo() ([]coinharness.PeerInfo, error) {
 	pif, err := c.rpc.GetPeerInfo()
 	if err != nil {
