@@ -290,10 +290,3 @@ func transactionTxToRaw(tx coinharness.CreatedTransactionTx) *wire.MsgTx {
 	}
 	return ttx
 }
-
-func transactionTxFromRaw(ttx *wire.MsgTx) coinharness.CreatedTransactionTx {
-	tx := &CreatedTransactionTx{
-		Parent: ttx,
-	}
-	return tx
-}

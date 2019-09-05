@@ -129,7 +129,7 @@ func (wallet *InMemoryWallet) updateTxFilter() {
 		filterAddrs = append(filterAddrs, v)
 	}
 	//pin.D("filterAddrs", filterAddrs)
-	err := wallet.nodeRPC.LoadTxFilter(true, filterAddrs, nil)
+	err := wallet.nodeRPC.Internal().(*rpcclient.Client).LoadTxFilter(true, filterAddrs, nil)
 	pin.CheckTestSetupMalfunction(err)
 }
 
@@ -145,7 +145,7 @@ func (wallet *InMemoryWallet) Stop() {
 // Sync block until the wallet has fully synced up to the tip of the main
 // chain.
 func (wallet *InMemoryWallet) Sync() {
-	_, height, err := wallet.nodeRPC.GetBestBlock()
+	_, height, err := wallet.nodeRPC.Internal().(*rpcclient.Client).GetBestBlock()
 	pin.CheckTestSetupMalfunction(err)
 	ticker := time.NewTicker(time.Millisecond * 100)
 	for range ticker.C {
@@ -346,7 +346,7 @@ func (wallet *InMemoryWallet) integrationdress() (pfcutil.Address, error) {
 		return nil, err
 	}
 
-	err = wallet.nodeRPC.LoadTxFilter(false, []pfcutil.Address{addr}, nil)
+	err = wallet.nodeRPC.Internal().(*rpcclient.Client).LoadTxFilter(false, []pfcutil.Address{addr}, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -444,7 +444,7 @@ func (wallet *InMemoryWallet) fundTx(tx *wire.MsgTx, amt pfcutil.Amount,
 // SendOutputs creates, then sends a transaction paying to the specified output
 // while observing the passed fee rate. The passed fee rate should be expressed
 // in satoshis-per-byte.
-func (wallet *InMemoryWallet) SendOutputs(args *coinharness.SendOutputsArgs) (coinharness.SentOutputsHash, error) {
+func (wallet *InMemoryWallet) SendOutputs(args *coinharness.SendOutputsArgs) (coinharness.Hash, error) {
 	arg2 := &coinharness.CreateTransactionArgs{
 		Outputs: args.Outputs,
 		FeeRate: args.FeeRate,
@@ -547,7 +547,9 @@ func (wallet *InMemoryWallet) CreateTransaction(args *coinharness.CreateTransact
 		utxo.isLocked = true
 	}
 
-	return pfcharness.TransactionTxFromRaw(tx), nil
+	return &pfcharness.CreatedTransactionTx{
+		Parent: tx,
+	}, nil
 }
 
 // UnlockOutputs unlocks any outputs which were previously locked due to
