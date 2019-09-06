@@ -590,3 +590,7 @@ func (wallet *InMemoryWallet) ConfirmedBalance() coinharness.CoinsAmount {
 
 	return balance
 }
+
+func (wallet *InMemoryWallet) RPCClient() *coinharness.RPCConnection {
+	panic("Method not supported")
+}
