@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 )
 
-// WalletFactory produces a new ConsoleWallet-instance upon request
-type WalletFactory struct {
+// ConsoleWalletFactory produces a new ConsoleWallet-instance upon request
+type ConsoleWalletFactory struct {
 	// WalletExecutablePathProvider returns path to the btcd executable
 	WalletExecutablePathProvider commandline.ExecutablePathProvider
 	ConsoleCommandCook           PfcdConsoleCommandCook
@@ -18,7 +18,7 @@ type WalletFactory struct {
 }
 
 // NewWallet creates and returns a fully initialized instance of the ConsoleWallet.
-func (factory *WalletFactory) NewWallet(config *coinharness.TestWalletConfig) coinharness.Wallet {
+func (factory *ConsoleWalletFactory) NewWallet(config *coinharness.TestWalletConfig) coinharness.Wallet {
 	pin.AssertNotNil("ActiveNet", config.ActiveNet)
 	pin.AssertNotNil("WorkingDir", config.WorkingDir)
 	pin.AssertNotEmpty("WorkingDir", config.WorkingDir)
