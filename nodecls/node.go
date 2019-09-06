@@ -61,29 +61,8 @@ func (cook *PfcdConsoleCommandCook) CookArguments(par *consolenode.ConsoleComman
 	if par.MiningAddress != nil {
 		result["miningaddr"] = par.MiningAddress.String()
 	}
-	result[networkFor(par.Network)] = commandline.NoArgumentValue
+	result[pfcharness.NetworkFor(par.Network)] = commandline.NoArgumentValue
 
 	commandline.ArgumentsCopyTo(par.ExtraArguments, result)
 	return result
-}
-
-// networkFor resolves network argument for node and wallet console commands
-func networkFor(net coinharness.Network) string {
-	if net == &chaincfg.SimNetParams {
-		return "simnet"
-	}
-	if net == &chaincfg.TestNet3Params {
-		return "testnet"
-	}
-	if net == &chaincfg.RegressionNetParams {
-		return "regtest"
-	}
-	if net == &chaincfg.MainNetParams {
-		// no argument needed for the MainNet
-		return commandline.NoArgument
-	}
-
-	// should never reach this line, report violation
-	pin.ReportTestSetupMalfunction(fmt.Errorf("unknown network: %v ", net))
-	return ""
 }
