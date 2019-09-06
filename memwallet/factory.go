@@ -11,12 +11,12 @@ import (
 	"github.com/picfight/pfcutil/hdkeychain"
 )
 
-// WalletFactory produces a new InMemoryWallet-instance upon request
-type WalletFactory struct {
+// MemWalletFactory produces a new InMemoryWallet-instance upon request
+type MemWalletFactory struct {
 }
 
 // NewWallet creates and returns a fully initialized instance of the InMemoryWallet.
-func (f *WalletFactory) NewWallet(cfg *coinharness.TestWalletConfig) coinharness.Wallet {
+func (f *MemWalletFactory) NewWallet(cfg *coinharness.TestWalletConfig) coinharness.Wallet {
 	pin.AssertNotNil("ActiveNet", cfg.ActiveNet)
 	w, e := newMemWallet(cfg.ActiveNet.(*chaincfg.Params), cfg.Seed.([chainhash.HashSize + 4]byte))
 	pin.CheckTestSetupMalfunction(e)
