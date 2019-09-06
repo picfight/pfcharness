@@ -590,3 +590,18 @@ func (wallet *InMemoryWallet) ConfirmedBalance() coinharness.CoinsAmount {
 func (wallet *InMemoryWallet) RPCClient() *coinharness.RPCConnection {
 	panic("Method not supported")
 }
+
+func (wallet *InMemoryWallet) CreateNewAccount(accountName string) (error) {
+	panic("")
+}
+
+func (wallet *InMemoryWallet) GetBalance(accountName string) (coinharness.CoinsAmount, error) {
+	panic("")
+}
+
+func (wallet *InMemoryWallet) GetNewAddress(accountName string) (coinharness.Address, error) {
+	panic("")
+}
+func (wallet *InMemoryWallet) ValidateAddress(address coinharness.Address) (*coinharness.ValidateAddressResult, error) {
+	panic("")
+}
