@@ -13,7 +13,7 @@ import (
 type ConsoleWalletFactory struct {
 	// WalletExecutablePathProvider returns path to the btcd executable
 	WalletExecutablePathProvider commandline.ExecutablePathProvider
-	ConsoleCommandCook           PfcdConsoleCommandCook
+	ConsoleCommandCook           WalletConsoleCommandCook
 	RPCClientFactory             pfcharness.PfcRPCClientFactory
 }
 
@@ -29,34 +29,31 @@ func (factory *ConsoleWalletFactory) NewWallet(config *coinharness.TestWalletCon
 		WalletExecutablePathProvider: factory.WalletExecutablePathProvider,
 		RpcUser:                      "user",
 		RpcPass:                      "pass",
-		AppDir:                       filepath.Join(config.WorkingDir, "pfcd"),
-		WalletRPCHost:                config.WalletRPCHost,
-		WalletRPCPort:                config.WalletRPCPort,
+		AppDir:                       filepath.Join(config.WorkingDir, "pfcwallet"),
+		NodeRPCHost:                  config.NodeRPCHost,
+		NodeRPCPort:                  config.NodeRPCPort,
 		ActiveNet:                    config.ActiveNet,
 	}
 
 	return consolewallet.NewConsoleWallet(args)
 }
 
-type PfcdConsoleCommandCook struct {
+type WalletConsoleCommandCook struct {
 }
 
 // cookArguments prepares arguments for the command-line call
-func (cook *PfcdConsoleCommandCook) CookArguments(par *consolewallet.ConsoleCommandParams) map[string]interface{} {
+func (cook *WalletConsoleCommandCook) CookArguments(par *consolewallet.ConsoleCommandParams) map[string]interface{} {
 	result := make(map[string]interface{})
 
-	result["txindex"] = commandline.NoArgumentValue
-	result["addrindex"] = commandline.NoArgumentValue
-	result["rpcuser"] = par.RpcUser
-	result["rpcpass"] = par.RpcPass
+	result["username"] = par.RpcUser
+	result["password"] = par.RpcPass
 	result["rpcconnect"] = par.RpcConnect
 	result["rpclisten"] = par.RpcListen
-	result["datadir"] = par.AppDir
+	result["appdata"] = par.AppDir
 	result["debuglevel"] = par.DebugLevel
-	result["profile"] = par.Profile
+	result["cafile"] = par.NodeCertFile
 	result["rpccert"] = par.CertFile
 	result["rpckey"] = par.KeyFile
-	result[pfcharness.NetworkFor(par.Network)] = commandline.NoArgumentValue
 
 	commandline.ArgumentsCopyTo(par.ExtraArguments, result)
 	return result
