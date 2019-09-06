@@ -6,7 +6,6 @@ import (
 	"github.com/jfixby/pin"
 	"github.com/jfixby/pin/commandline"
 	"github.com/picfight/pfcharness"
-	"path/filepath"
 )
 
 // ConsoleNodeFactory produces a new ConsoleNode-instance upon request
@@ -28,7 +27,7 @@ func (factory *ConsoleNodeFactory) NewNode(config *coinharness.TestNodeConfig) c
 		NodeExecutablePathProvider: factory.NodeExecutablePathProvider,
 		RpcUser:                    "user",
 		RpcPass:                    "pass",
-		AppDir:                     filepath.Join(config.WorkingDir, "pfcd"),
+		AppDir:                     config.WorkingDir,
 		P2PHost:                    config.P2PHost,
 		P2PPort:                    config.P2PPort,
 		NodeRPCHost:                config.NodeRPCHost,

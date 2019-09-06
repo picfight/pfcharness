@@ -6,7 +6,6 @@ import (
 	"github.com/jfixby/pin"
 	"github.com/jfixby/pin/commandline"
 	"github.com/picfight/pfcharness"
-	"path/filepath"
 )
 
 // ConsoleWalletFactory produces a new ConsoleWallet-instance upon request
@@ -29,7 +28,7 @@ func (factory *ConsoleWalletFactory) NewWallet(config *coinharness.TestWalletCon
 		WalletExecutablePathProvider: factory.WalletExecutablePathProvider,
 		RpcUser:                      "user",
 		RpcPass:                      "pass",
-		AppDir:                       filepath.Join(config.WorkingDir, "pfcwallet"),
+		AppDir:                       config.WorkingDir,
 		NodeRPCHost:                  config.NodeRPCHost,
 		NodeRPCPort:                  config.NodeRPCPort,
 		WalletRPCHost:                config.WalletRPCHost,
