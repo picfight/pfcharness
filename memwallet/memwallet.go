@@ -591,7 +591,7 @@ func (wallet *InMemoryWallet) RPCClient() *coinharness.RPCConnection {
 	panic("Method not supported")
 }
 
-func (wallet *InMemoryWallet) CreateNewAccount(accountName string) (error) {
+func (wallet *InMemoryWallet) CreateNewAccount(accountName string) error {
 	panic("")
 }
 

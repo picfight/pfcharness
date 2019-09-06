@@ -32,6 +32,8 @@ func (factory *ConsoleWalletFactory) NewWallet(config *coinharness.TestWalletCon
 		AppDir:                       filepath.Join(config.WorkingDir, "pfcwallet"),
 		NodeRPCHost:                  config.NodeRPCHost,
 		NodeRPCPort:                  config.NodeRPCPort,
+		WalletRPCHost:                config.WalletRPCHost,
+		WalletRPCPort:                config.WalletRPCPort,
 		ActiveNet:                    config.ActiveNet,
 	}
 
