@@ -1,16 +1,10 @@
-// Copyright (c) 2018 The btcsuite developers
-// Use of this source code is governed by an ISC
-// license that can be found in the LICENSE file.
-
 package nodecls
 
 import (
-	"fmt"
 	"github.com/jfixby/coinharness"
 	"github.com/jfixby/coinharness/consolenode"
 	"github.com/jfixby/pin"
 	"github.com/jfixby/pin/commandline"
-	"github.com/picfight/pfcd/chaincfg"
 	"github.com/picfight/pfcharness"
 	"path/filepath"
 )
