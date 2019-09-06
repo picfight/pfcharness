@@ -43,15 +43,15 @@ func (c *PFCRPCClient) AddNode(args *coinharness.AddNodeArguments) error {
 	return c.rpc.AddNode(args.TargetAddr, args.Command.(rpcclient.AddNodeCommand))
 }
 
-func (c *PFCRPCClient) Disconnect() () {
+func (c *PFCRPCClient) Disconnect() {
 	c.rpc.Disconnect()
 }
 
-func (c *PFCRPCClient) Shutdown() () {
+func (c *PFCRPCClient) Shutdown() {
 	c.rpc.Shutdown()
 }
 
-func (c *PFCRPCClient) NotifyBlocks() (error) {
+func (c *PFCRPCClient) NotifyBlocks() error {
 	return c.rpc.NotifyBlocks()
 }
 
@@ -70,7 +70,7 @@ func (c *PFCRPCClient) Generate(blocks uint32) (result []coinharness.Hash, e err
 	return result, nil
 }
 
-func (c *PFCRPCClient) Internal() (interface{}) {
+func (c *PFCRPCClient) Internal() interface{} {
 	return c.rpc
 }
 
