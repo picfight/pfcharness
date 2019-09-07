@@ -21,12 +21,15 @@ func (factory *ConsoleNodeFactory) NewNode(config *coinharness.TestNodeConfig) c
 	pin.AssertNotNil("WorkingDir", config.WorkingDir)
 	pin.AssertNotEmpty("WorkingDir", config.WorkingDir)
 
+	pin.AssertNotEmpty("NodeUser", config.NodeUser)
+	pin.AssertNotEmpty("NodePassword", config.NodePassword)
+
 	args := &consolenode.NewConsoleNodeArgs{
 		ClientFac:                  &factory.RPCClientFactory,
 		ConsoleCommandCook:         &factory.ConsoleCommandCook,
 		NodeExecutablePathProvider: factory.NodeExecutablePathProvider,
-		RpcUser:                    "user",
-		RpcPass:                    "pass",
+		RpcUser:                    config.NodeUser,
+		RpcPass:                    config.NodePassword,
 		AppDir:                     config.WorkingDir,
 		P2PHost:                    config.P2PHost,
 		P2PPort:                    config.P2PPort,

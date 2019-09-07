@@ -22,12 +22,19 @@ func (factory *ConsoleWalletFactory) NewWallet(config *coinharness.TestWalletCon
 	pin.AssertNotNil("WorkingDir", config.WorkingDir)
 	pin.AssertNotEmpty("WorkingDir", config.WorkingDir)
 
+	pin.AssertNotEmpty("NodeUser", config.NodeUser)
+	pin.AssertNotEmpty("NodePassword", config.NodePassword)
+	pin.AssertNotEmpty("WalletUser", config.WalletUser)
+	pin.AssertNotEmpty("WalletPassword", config.WalletPassword)
+
 	args := &consolewallet.NewConsoleWalletArgs{
 		ClientFac:                    &factory.RPCClientFactory,
 		ConsoleCommandCook:           &factory.ConsoleCommandCook,
 		WalletExecutablePathProvider: factory.WalletExecutablePathProvider,
-		RpcUser:                      "user",
-		RpcPass:                      "pass",
+		WalletUser:                   config.WalletUser,
+		WalletPass:                   config.WalletPassword,
+		NodeUser:                     config.NodeUser,
+		NodePass:                     config.NodePassword,
 		AppDir:                       config.WorkingDir,
 		NodeRPCHost:                  config.NodeRPCHost,
 		NodeRPCPort:                  config.NodeRPCPort,
@@ -46,8 +53,10 @@ type WalletConsoleCommandCook struct {
 func (cook *WalletConsoleCommandCook) CookArguments(par *consolewallet.ConsoleCommandParams) map[string]interface{} {
 	result := make(map[string]interface{})
 
-	result["username"] = par.RpcUser
-	result["password"] = par.RpcPass
+	result["pfcdusername"] = par.NodeRpcUser
+	result["pfcdpassword"] = par.NodeRpcPass
+	result["username"] = par.WalletRpcUser
+	result["password"] = par.WalletRpcPass
 	result["rpcconnect"] = par.RpcConnect
 	result["rpclisten"] = par.RpcListen
 	result["appdata"] = par.AppDir
@@ -55,6 +64,8 @@ func (cook *WalletConsoleCommandCook) CookArguments(par *consolewallet.ConsoleCo
 	result["cafile"] = par.NodeCertFile
 	result["rpccert"] = par.CertFile
 	result["rpckey"] = par.KeyFile
+
+	result[pfcharness.NetworkFor(par.Network)] = commandline.NoArgumentValue
 
 	commandline.ArgumentsCopyTo(par.ExtraArguments, result)
 	return result

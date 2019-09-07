@@ -116,3 +116,7 @@ func NewRPCClient(config *rpcclient.ConnConfig, handlers *rpcclient.Notification
 	result := &PFCRPCClient{rpc: legacy}
 	return result, nil
 }
+
+func (c *PFCRPCClient) GetNewAddress(account string) (coinharness.Address, error) {
+	return c.rpc.GetNewAddress(account)
+}
