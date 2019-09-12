@@ -37,7 +37,7 @@ func (o *CreatedTransactionTx) LockTime() uint32 {
 }
 
 func (o *CreatedTransactionTx) Version() int32 {
-	return o.Parent.Version
+	return int32(o.Parent.Version)
 }
 
 func (o *CreatedTransactionTx) TxHash() coinharness.Hash {

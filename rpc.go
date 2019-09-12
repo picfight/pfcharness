@@ -74,8 +74,8 @@ func (c *PFCRPCClient) Internal() interface{} {
 	return c.rpc
 }
 
-func (c *PFCRPCClient) GetRawMempool() (result []coinharness.Hash, e error) {
-	list, e := c.rpc.GetRawMempool()
+func (c *DCRPCClient) GetRawMempool(command interface{}) (result []coinharness.Hash, e error) {
+	list, e := c.rpc.GetRawMempool(command.(dcrjson.GetRawMempoolTxTypeCmd))
 	if e != nil {
 		return nil, e
 	}
@@ -113,10 +113,32 @@ func NewRPCClient(config *rpcclient.ConnConfig, handlers *rpcclient.Notification
 		return nil, err
 	}
 
-	result := &PFCRPCClient{rpc: legacy}
+	result := &DCRPCClient{rpc: legacy}
 	return result, nil
 }
 
-func (c *PFCRPCClient) GetNewAddress(account string) (coinharness.Address, error) {
-	return c.rpc.GetNewAddress(account)
+func (c *DCRPCClient) GetNewAddress(account string) (coinharness.Address, error) {
+	legacy, err := c.rpc.GetNewAddress(account)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &DCRAddress{Address: legacy}
+	return result, nil
+}
+
+type DCRAddress struct {
+	Address dcrutil.Address
+}
+
+func (c *DCRAddress) String() string {
+	return c.Address.String()
+}
+
+func (c *DCRAddress) Internal() interface{} {
+	return c.Address
+}
+
+func (c *DCRAddress) IsForNet(net coinharness.Network) bool {
+	return c.Address.IsForNet(net.(*chaincfg.Params))
 }

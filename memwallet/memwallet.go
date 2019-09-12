@@ -25,7 +25,7 @@ import (
 // hierarchy which promotes reproducibility between harness test runs.
 // Implements harness.TestWallet.
 type InMemoryWallet struct {
-	coinbaseKey  *pfcec.PrivateKey
+	coinbaseKey  *secp256k1.PrivateKey
 	coinbaseAddr pfcutil.Address
 
 	// hdRoot is the root master private key for the wallet.
@@ -36,7 +36,7 @@ type InMemoryWallet struct {
 
 	// currentHeight is the latest height the wallet is known to be synced
 	// to.
-	currentHeight int32
+	currentHeight int64
 
 	// addrs tracks all addresses belonging to the wallet. The addresses
 	// are indexed by their keypath from the hdRoot.
@@ -49,7 +49,7 @@ type InMemoryWallet struct {
 	// received. Once a block is disconnected, the undo entry for the
 	// particular height is evaluated, thereby rewinding the effect of the
 	// disconnected block on the wallet's set of spendable utxos.
-	reorgJournal map[int32]*undoEntry
+	reorgJournal map[int64]*undoEntry
 
 	chainUpdates []*chainUpdate
 
@@ -75,35 +75,33 @@ func (wallet *InMemoryWallet) Network() coinharness.Network {
 func (wallet *InMemoryWallet) Start(args *coinharness.TestWalletStartArgs) error {
 	handlers := &rpcclient.NotificationHandlers{}
 
+	// If a handler for the OnBlockConnected/OnBlockDisconnected callback
+	// has already been set, then we create a wrapper callback which
 	// executes both the currently registered callback, and the mem
 	// wallet's callback.
-	// If a handler for the OnFilteredBlock{Connected,Disconnected} callback
-	// callback has already been set, then create a wrapper callback which
-	// executes both the currently registered callback and the mem wallet's
-	// callback.
-	if handlers.OnFilteredBlockConnected != nil {
-		obc := handlers.OnFilteredBlockConnected
-		handlers.OnFilteredBlockConnected = func(height int32, header *wire.BlockHeader, filteredTxns []*pfcutil.Tx) {
-			wallet.IngestBlock(height, header, filteredTxns)
-			obc(height, header, filteredTxns)
+	if handlers.OnBlockConnected != nil {
+		obc := handlers.OnBlockConnected
+		handlers.OnBlockConnected = func(header []byte, filteredTxns [][]byte) {
+			wallet.IngestBlock(header, filteredTxns)
+			obc(header, filteredTxns)
 		}
 	} else {
 		// Otherwise, we can claim the callback ourselves.
-		handlers.OnFilteredBlockConnected = wallet.IngestBlock
+		handlers.OnBlockConnected = wallet.IngestBlock
 	}
-	if handlers.OnFilteredBlockDisconnected != nil {
-		obd := handlers.OnFilteredBlockDisconnected
-		handlers.OnFilteredBlockDisconnected = func(height int32, header *wire.BlockHeader) {
-			wallet.UnwindBlock(height, header)
-			obd(height, header)
+	if handlers.OnBlockDisconnected != nil {
+		obd := handlers.OnBlockDisconnected
+		handlers.OnBlockDisconnected = func(header []byte) {
+			wallet.UnwindBlock(header)
+			obd(header)
 		}
 	} else {
-		handlers.OnFilteredBlockDisconnected = wallet.UnwindBlock
+		handlers.OnBlockDisconnected = wallet.UnwindBlock
 	}
 
 	//handlers.OnClientConnected = wallet.onDcrdConnect
-	client := coinharness.NewRPCConnection(wallet.RPCClientFactory, args.NodeRPCConfig, 5, handlers)
-	wallet.nodeRPC = client
+
+	wallet.nodeRPC = coinharness.NewRPCConnection(wallet.RPCClientFactory, args.NodeRPCConfig, 5, handlers)
 	pin.AssertNotNil("nodeRPC", wallet.nodeRPC)
 
 	// Filter transactions that pay to the coinbase associated with the
@@ -124,7 +122,6 @@ func (wallet *InMemoryWallet) updateTxFilter() {
 	for _, v := range wallet.addrs {
 		filterAddrs = append(filterAddrs, v)
 	}
-	//pin.D("filterAddrs", filterAddrs)
 	err := wallet.nodeRPC.Internal().(*rpcclient.Client).LoadTxFilter(true, filterAddrs, nil)
 	pin.CheckTestSetupMalfunction(err)
 }
@@ -160,28 +157,42 @@ func (wallet *InMemoryWallet) Dispose() error {
 // SyncedHeight returns the height the wallet is known to be synced to.
 //
 // This function is safe for concurrent access.
-func (wallet *InMemoryWallet) SyncedHeight() int32 {
+func (wallet *InMemoryWallet) SyncedHeight() int64 {
 	wallet.RLock()
 	defer wallet.RUnlock()
 	return wallet.currentHeight
 }
 
 // IngestBlock is a call-back which is to be triggered each time a new block is
-// connected to the main chain. It queues the update for the chain syncer,
-// calling the private version in sequential order.
-func (wallet *InMemoryWallet) IngestBlock(height int32, header *wire.BlockHeader, filteredTxns []*pfcutil.Tx) {
+// connected to the main chain. Ingesting a block updates the wallet's internal
+// utxo state based on the outputs created and destroyed within each block.
+func (m *InMemoryWallet) IngestBlock(header []byte, filteredTxns [][]byte) {
+	var hdr wire.BlockHeader
+	if err := hdr.FromBytes(header); err != nil {
+		panic(err)
+	}
+	height := int64(hdr.Height)
+
+	txns := make([]*dcrutil.Tx, 0, len(filteredTxns))
+	for _, txBytes := range filteredTxns {
+		tx, err := dcrutil.NewTxFromBytes(txBytes)
+		if err != nil {
+			panic(err)
+		}
+		txns = append(txns, tx)
+	}
+
 	// Append this new chain update to the end of the queue of new chain
 	// updates.
-	wallet.chainMtx.Lock()
-	wallet.chainUpdates = append(wallet.chainUpdates, &chainUpdate{height,
-		filteredTxns, true})
-	wallet.chainMtx.Unlock()
+	m.chainMtx.Lock()
+	m.chainUpdates = append(m.chainUpdates, &chainUpdate{height, txns})
+	m.chainMtx.Unlock()
 
-	// Start a goroutine to signal the chainSyncer that a new update is
+	// Launch a goroutine to signal the chainSyncer that a new update is
 	// available. We do this in a new goroutine in order to avoid blocking
 	// the main loop of the rpc client.
 	go func() {
-		wallet.chainUpdateSignal <- chainUpdateSignal
+		m.chainUpdateSignal <- chainUpdateSignal
 	}()
 }
 
@@ -228,12 +239,26 @@ func (wallet *InMemoryWallet) chainSyncer() {
 		wallet.chainUpdates = wallet.chainUpdates[1:]
 		wallet.chainMtx.Unlock()
 
+		// Update the latest synced height, then process each filtered
+		// transaction in the block creating and destroying utxos within
+		// the wallet as a result.
 		wallet.Lock()
-		if update.isConnect {
-			wallet.ingestBlock(update)
-		} else {
-			wallet.unwindBlock(update)
+		wallet.currentHeight = update.blockHeight
+		undo := &undoEntry{
+			utxosDestroyed: make(map[wire.OutPoint]*utxo),
 		}
+		for _, tx := range update.filteredTxns {
+			mtx := tx.MsgTx()
+			isCoinbase := blockchain.IsCoinBaseTx(mtx)
+			txHash := mtx.TxHash()
+			wallet.evalOutputs(mtx.TxOut, &txHash, isCoinbase, undo)
+			wallet.evalInputs(mtx.TxIn, undo)
+		}
+
+		// Finally, record the undo entry for this block so we can
+		// properly update our internal state in response to the block
+		// being re-org'd from the main chain.
+		wallet.reorgJournal[update.blockHeight] = undo
 		wallet.Unlock()
 	}
 }
@@ -255,9 +280,9 @@ func (wallet *InMemoryWallet) evalOutputs(outputs []*wire.TxOut, txHash *chainha
 			// If this is a coinbase output, then we mark the
 			// maturity height at the proper block height in the
 			// future.
-			var maturityHeight int32
+			var maturityHeight int64
 			if isCoinbase {
-				maturityHeight = wallet.currentHeight + int32(wallet.net.CoinbaseMaturity)
+				maturityHeight = wallet.currentHeight + int64(wallet.net.CoinbaseMaturity)
 			}
 
 			op := wire.OutPoint{Hash: *txHash, Index: uint32(i)}
@@ -288,22 +313,29 @@ func (wallet *InMemoryWallet) evalInputs(inputs []*wire.TxIn, undo *undoEntry) {
 }
 
 // UnwindBlock is a call-back which is to be executed each time a block is
-// disconnected from the main chain. It queues the update for the chain syncer,
-// calling the private version in sequential order.
-func (wallet *InMemoryWallet) UnwindBlock(height int32, header *wire.BlockHeader) {
-	// Append this new chain update to the end of the queue of new chain
-	// updates.
-	wallet.chainMtx.Lock()
-	wallet.chainUpdates = append(wallet.chainUpdates, &chainUpdate{height,
-		nil, false})
-	wallet.chainMtx.Unlock()
+// disconnected from the main chain. Unwinding a block undoes the effect that a
+// particular block had on the wallet's internal utxo state.
+func (m *InMemoryWallet) UnwindBlock(header []byte) {
+	var hdr wire.BlockHeader
+	if err := hdr.FromBytes(header); err != nil {
+		panic(err)
+	}
+	height := int64(hdr.Height)
 
-	// Start a goroutine to signal the chainSyncer that a new update is
-	// available. We do this in a new goroutine in order to avoid blocking
-	// the main loop of the rpc client.
-	go func() {
-		wallet.chainUpdateSignal <- chainUpdateSignal
-	}()
+	m.Lock()
+	defer m.Unlock()
+
+	undo := m.reorgJournal[height]
+
+	for _, utxo := range undo.utxosCreated {
+		delete(m.utxos, utxo)
+	}
+
+	for outPoint, utxo := range undo.utxosDestroyed {
+		m.utxos[outPoint] = utxo
+	}
+
+	delete(m.reorgJournal, height)
 }
 
 // unwindBlock undoes the effect that a particular block had on the wallet's
@@ -322,10 +354,10 @@ func (wallet *InMemoryWallet) unwindBlock(update *chainUpdate) {
 	delete(wallet.reorgJournal, update.blockHeight)
 }
 
-// integrationdress returns a new address from the wallet's hd key chain.  It also
+// newAddress returns a new address from the wallet's hd key chain.  It also
 // loads the address into the RPC client's transaction filter to ensure any
 // transactions that involve it are delivered via the notifications.
-func (wallet *InMemoryWallet) integrationdress() (pfcutil.Address, error) {
+func (wallet *InMemoryWallet) newAddress() (dcrutil.Address, error) {
 	index := wallet.hdIndex
 
 	childKey, err := wallet.hdRoot.Child(index)
@@ -361,19 +393,22 @@ func (wallet *InMemoryWallet) NewAddress(_ *coinharness.NewAddressArgs) (coinhar
 	wallet.Lock()
 	defer wallet.Unlock()
 
-	return wallet.integrationdress()
+	add, err := wallet.newAddress()
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &dcrharness.DCRAddress{Address: add}, nil
 }
 
-// fundTx attempts to fund a transaction sending amt bitcoin. The coins are
-// selected such that the final amount spent pays enough fees as dictated by the
-// passed fee rate. The passed fee rate should be expressed in
-// satoshis-per-byte. The transaction being funded can optionally include a
-// change output indicated by the change boolean.
+// fundTx attempts to fund a transaction sending amt coins.  The coins are
+// selected such that the final amount spent pays enough fees as dictated by
+// the passed fee rate.  The passed fee rate should be expressed in
+// atoms-per-byte.
 //
-// NOTE: The memWallet's mutex must be held when this function is called.
-func (wallet *InMemoryWallet) fundTx(tx *wire.MsgTx, amt pfcutil.Amount,
-	feeRate pfcutil.Amount, change bool) error {
-
+// NOTE: The InMemoryWallet's mutex must be held when this function is called.
+func (wallet *InMemoryWallet) fundTx(tx *wire.MsgTx, amt dcrutil.Amount, feeRate dcrutil.Amount) error {
 	const (
 		// spendSize is the largest number of bytes of a sigScript
 		// which spends a p2pkh output: OP_DATA_73 <sig> OP_DATA_33 <pubkey>
@@ -397,7 +432,7 @@ func (wallet *InMemoryWallet) fundTx(tx *wire.MsgTx, amt pfcutil.Amount,
 		// Add the selected output to the transaction, updating the
 		// current tx size while accounting for the size of the future
 		// sigScript.
-		tx.AddTxIn(wire.NewTxIn(&outPoint, nil, nil))
+		tx.AddTxIn(wire.NewTxIn(&outPoint, int64(utxo.value), nil))
 		txSize = tx.SerializeSize() + spendSize*len(tx.TxIn)
 
 		// Calculate the fee required for the txn at this point
@@ -409,12 +444,11 @@ func (wallet *InMemoryWallet) fundTx(tx *wire.MsgTx, amt pfcutil.Amount,
 			continue
 		}
 
-		// If we have any change left over and we should create a change
-		// output, then add an additional output to the transaction
-		// reserved for it.
+		// If we have any change left over, then add an additional
+		// output to the transaction reserved for change.
 		changeVal := amtSelected - amt - reqFee
-		if changeVal > 0 && change {
-			addr, err := wallet.integrationdress()
+		if changeVal > 0 {
+			addr, err := wallet.newAddress()
 			if err != nil {
 				return err
 			}
@@ -444,12 +478,12 @@ func (wallet *InMemoryWallet) SendOutputs(args *coinharness.SendOutputsArgs) (co
 	arg2 := &coinharness.CreateTransactionArgs{
 		Outputs: args.Outputs,
 		FeeRate: args.FeeRate,
-		Change:  true,
 	}
 	tx, err := wallet.CreateTransaction(arg2)
 	if err != nil {
 		return nil, err
 	}
+
 	return wallet.nodeRPC.SendRawTransaction(tx, true)
 }
 
@@ -491,18 +525,18 @@ func (wallet *InMemoryWallet) CreateTransaction(args *coinharness.CreateTransact
 	wallet.Lock()
 	defer wallet.Unlock()
 
-	tx := wire.NewMsgTx(args.TxVersion)
+	tx := wire.NewMsgTx()
 
 	// Tally up the total amount to be sent in order to perform coin
 	// selection shortly below.
-	var outputAmt pfcutil.Amount
+	var outputAmt dcrutil.Amount
 	for _, output := range args.Outputs {
-		outputAmt += pfcutil.Amount(output.Value())
-		tx.AddTxOut(output.(*pfcharness.OutputTx).Parent)
+		outputAmt += dcrutil.Amount(output.Value())
+		tx.AddTxOut(output.(*dcrharness.OutputTx).Parent)
 	}
 
 	// Attempt to fund the transaction with spendable utxos.
-	if err := wallet.fundTx(tx, outputAmt, pfcutil.Amount(args.FeeRate.(int)), args.Change); err != nil {
+	if err := wallet.fundTx(tx, outputAmt, dcrutil.Amount(args.FeeRate.(int))); err != nil {
 		return nil, err
 	}
 
@@ -542,10 +576,7 @@ func (wallet *InMemoryWallet) CreateTransaction(args *coinharness.CreateTransact
 	for _, utxo := range spentOutputs {
 		utxo.isLocked = true
 	}
-
-	return &pfcharness.CreatedTransactionTx{
-		Parent: tx,
-	}, nil
+	return &dcrharness.CreatedTransactionTx{tx}, nil
 }
 
 // UnlockOutputs unlocks any outputs which were previously locked due to

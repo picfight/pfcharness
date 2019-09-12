@@ -73,7 +73,7 @@ func GenerateAndSubmitBlockWithCustomCoinbaseOutputs(client coinharness.RPCClien
 		return nil, err
 	}
 	prevBlock := pfcutil.NewBlock(mBlock)
-	prevBlock.SetHeight(prevBlockHeight)
+	mBlock.Header.Height = uint32(prevBlockHeight)
 
 	// Create a new block including the specified transactions
 	newBlock, err := CreateBlock(prevBlock, txns, blockVersion,
@@ -101,7 +101,7 @@ func CreateBlock(prevBlock *pfcutil.Block, inclusionTxs []*pfcutil.Tx,
 
 	var (
 		prevHash      *chainhash.Hash
-		blockHeight   int32
+		blockHeight   int64
 		prevBlockTime time.Time
 	)
 
@@ -113,7 +113,7 @@ func CreateBlock(prevBlock *pfcutil.Block, inclusionTxs []*pfcutil.Tx,
 		prevBlockTime = net.GenesisBlock.Header.Timestamp.Add(time.Minute)
 	} else {
 		prevHash = prevBlock.Hash()
-		blockHeight = prevBlock.Height() + 1
+		blockHeight = (prevBlock.Height() + 1)
 		prevBlockTime = prevBlock.MsgBlock().Header.Timestamp
 	}
 
@@ -144,7 +144,7 @@ func CreateBlock(prevBlock *pfcutil.Block, inclusionTxs []*pfcutil.Tx,
 	if inclusionTxs != nil {
 		blockTxns = append(blockTxns, inclusionTxs...)
 	}
-	merkles := blockchain.BuildMerkleTreeStore(blockTxns, false)
+	merkles := blockchain.BuildMerkleTreeStore(blockTxns)
 	var block wire.MsgBlock
 	block.Header = wire.BlockHeader{
 		Version:    blockVersion,
@@ -165,7 +165,7 @@ func CreateBlock(prevBlock *pfcutil.Block, inclusionTxs []*pfcutil.Tx,
 	}
 
 	utilBlock := pfcutil.NewBlock(&block)
-	utilBlock.SetHeight(blockHeight)
+	utilBlock.MsgBlock().Header.Height = uint32(blockHeight)
 	return utilBlock, nil
 }
 
@@ -238,48 +238,152 @@ func solveBlock(header *wire.BlockHeader, targetDifficulty *big.Int) bool {
 // standardCoinbaseScript returns a standard script suitable for use as the
 // signature script of the coinbase transaction of a new block. In particular,
 // it starts with the block height that is required by version 2 blocks.
-func standardCoinbaseScript(nextBlockHeight int32, extraNonce uint64) ([]byte, error) {
+func standardCoinbaseScript(nextBlockHeight int64, extraNonce uint64) ([]byte, error) {
 	return txscript.NewScriptBuilder().AddInt64(int64(nextBlockHeight)).
 		AddInt64(int64(extraNonce)).Script()
 }
 
+// TxTreeRegular is the value for a normal transaction tree for a
+// transaction's location in a block.
+const TxTreeRegular int8 = 0
+
 // createCoinbaseTx returns a coinbase transaction paying an appropriate
 // subsidy based on the passed block height to the provided address.
-func createCoinbaseTx(coinbaseScript []byte, nextBlockHeight int32,
-	addr pfcutil.Address, mineTo []wire.TxOut,
-	net *chaincfg.Params) (*pfcutil.Tx, error) {
+func createCoinbaseTx(coinbaseScript []byte, nextBlockHeight int64,
+	addr dcrutil.Address, mineTo []wire.TxOut,
+	params *chaincfg.Params) (*dcrutil.Tx, error) {
 
-	// Create the script to pay to the provided payment address.
-	pkScript, err := txscript.PayToAddrScript(addr)
-	if err != nil {
-		return nil, err
-	}
-
-	tx := wire.NewMsgTx(wire.TxVersion)
+	tx := wire.NewMsgTx()
 	tx.AddTxIn(&wire.TxIn{
 		// Coinbase transactions have no inputs, so previous outpoint is
 		// zero hash and max index.
 		PreviousOutPoint: *wire.NewOutPoint(&chainhash.Hash{},
-			wire.MaxPrevOutIndex),
-		SignatureScript: coinbaseScript,
+			wire.MaxPrevOutIndex, wire.TxTreeRegular),
 		Sequence:        wire.MaxTxInSequenceNum,
+		BlockHeight:     wire.NullBlockHeight,
+		BlockIndex:      wire.NullBlockIndex,
+		SignatureScript: coinbaseScript,
 	})
-	if len(mineTo) == 0 {
+
+	// Block one is a special block that might pay out tokens to a ledger.
+	if nextBlockHeight == 1 && len(params.BlockOneLedger) != 0 {
+		// Convert the addresses in the ledger into useable format.
+		addrs := make([]dcrutil.Address, len(params.BlockOneLedger))
+		for i, payout := range params.BlockOneLedger {
+			addr, err := dcrutil.DecodeAddress(payout.Address)
+			if err != nil {
+				return nil, err
+			}
+			addrs[i] = addr
+		}
+
+		for i, payout := range params.BlockOneLedger {
+			// Make payout to this address.
+			pks, err := txscript.PayToAddrScript(addrs[i])
+			if err != nil {
+				return nil, err
+			}
+			tx.AddTxOut(&wire.TxOut{
+				Value:    payout.Amount,
+				PkScript: pks,
+			})
+		}
+
+		tx.TxIn[0].ValueIn = params.BlockOneSubsidy()
+
+		return dcrutil.NewTx(tx), nil
+	}
+
+	subsidyCache := blockchain.NewSubsidyCache(0, params)
+	voters := params.TicketsPerBlock
+	// Create a coinbase with correct block subsidy and extranonce.
+	subsidy := blockchain.CalcBlockWorkSubsidy(subsidyCache,
+		nextBlockHeight,
+		voters,
+		params)
+	tax := blockchain.CalcBlockTaxSubsidy(subsidyCache,
+		nextBlockHeight,
+		voters,
+		params)
+
+	// Tax output.
+	if params.BlockTaxProportion > 0 {
 		tx.AddTxOut(&wire.TxOut{
-			Value:    blockchain.CalcBlockSubsidy(nextBlockHeight, net), //bump
-			PkScript: pkScript,
+			Value:    tax,
+			PkScript: params.OrganizationPkScript,
 		})
 	} else {
-		for i := range mineTo {
-			tx.AddTxOut(&mineTo[i])
+		// Tax disabled.
+		scriptBuilder := txscript.NewScriptBuilder()
+		trueScript, err := scriptBuilder.AddOp(txscript.OP_TRUE).Script()
+		if err != nil {
+			return nil, err
+		}
+		tx.AddTxOut(&wire.TxOut{
+			Value:    tax,
+			PkScript: trueScript,
+		})
+	}
+
+	random, err := wire.RandomUint64()
+	if err != nil {
+		return nil, err
+	}
+	height := nextBlockHeight
+	opReturnPkScript, err := standardCoinbaseOpReturn(height, random)
+
+	// Extranonce.
+	tx.AddTxOut(&wire.TxOut{
+		Value:    0,
+		PkScript: opReturnPkScript,
+	})
+	// ValueIn.
+	tx.TxIn[0].ValueIn = subsidy + tax
+
+	// Create the script to pay to the provided payment address if one was
+	// specified.  Otherwise create a script that allows the coinbase to be
+	// redeemable by anyone.
+	var pksSubsidy []byte
+	if addr != nil {
+		var err error
+		pksSubsidy, err = txscript.PayToAddrScript(addr)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		var err error
+		scriptBuilder := txscript.NewScriptBuilder()
+		pksSubsidy, err = scriptBuilder.AddOp(txscript.OP_TRUE).Script()
+		if err != nil {
+			return nil, err
 		}
 	}
-	return pfcutil.NewTx(tx), nil
+	// Subsidy paid to miner.
+	tx.AddTxOut(&wire.TxOut{
+		Value:    subsidy,
+		PkScript: pksSubsidy,
+	})
+
+	return dcrutil.NewTx(tx), nil
+}
+
+// standardCoinbaseOpReturn creates a standard OP_RETURN output to insert into
+// coinbase to use as extranonces. The OP_RETURN pushes 32 bytes.
+func standardCoinbaseOpReturn(height int64, extraNonce uint64) ([]byte, error) {
+	enData := make([]byte, 12)
+	binary.LittleEndian.PutUint32(enData[0:4], uint32(height))
+	binary.LittleEndian.PutUint64(enData[4:12], extraNonce)
+	extraNonceScript, err := txscript.GenerateProvablyPruneableOut(enData)
+	if err != nil {
+		return nil, err
+	}
+
+	return extraNonceScript, nil
 }
 
 func TransactionTxToRaw(tx coinharness.CreatedTransactionTx) *wire.MsgTx {
 	ttx := &wire.MsgTx{
-		Version:  tx.Version(),
+		Version:  uint16(tx.Version()),
 		LockTime: tx.LockTime(),
 	}
 	for _, ti := range tx.TxIn() {

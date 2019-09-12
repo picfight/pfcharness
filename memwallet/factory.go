@@ -60,7 +60,7 @@ func newMemWallet(net *chaincfg.Params, harnessHDSeed [chainhash.HashSize + 4]by
 		addrs:             addrs,
 		utxos:             make(map[wire.OutPoint]*utxo),
 		chainUpdateSignal: make(chan string),
-		reorgJournal:      make(map[int32]*undoEntry),
-		RPCClientFactory:  clientFac,
+		reorgJournal:      make(map[int64]*undoEntry),
+		RPCClientFactory:           clientFac,
 	}, nil
 }

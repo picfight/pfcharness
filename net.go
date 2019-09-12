@@ -16,8 +16,8 @@ func NetworkFor(net coinharness.Network) string {
 	if net == &chaincfg.TestNet3Params {
 		return "testnet"
 	}
-	if net == &chaincfg.RegressionNetParams {
-		return "regtest"
+	if net == &chaincfg.RegNetParams {
+		return "regnet"
 	}
 	if net == &chaincfg.MainNetParams {
 		// no argument needed for the MainNet
