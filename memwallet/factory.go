@@ -5,10 +5,10 @@ import (
 	"github.com/jfixby/pin"
 	"github.com/picfight/pfcd/chaincfg"
 	"github.com/picfight/pfcd/chaincfg/chainhash"
+	"github.com/picfight/pfcd/hdkeychain"
+	"github.com/picfight/pfcd/pfcutil"
 	"github.com/picfight/pfcd/wire"
 	"github.com/picfight/pfcharness"
-	"github.com/picfight/pfcutil"
-	"github.com/picfight/pfcutil/hdkeychain"
 )
 
 // MemWalletFactory produces a new InMemoryWallet-instance upon request
@@ -61,6 +61,6 @@ func newMemWallet(net *chaincfg.Params, harnessHDSeed [chainhash.HashSize + 4]by
 		utxos:             make(map[wire.OutPoint]*utxo),
 		chainUpdateSignal: make(chan string),
 		reorgJournal:      make(map[int64]*undoEntry),
-		RPCClientFactory:           clientFac,
+		RPCClientFactory:  clientFac,
 	}, nil
 }

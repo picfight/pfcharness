@@ -1,4 +1,4 @@
-Picfightcoin harness
+PicFight harness
 =======
 [![ISC License](http://img.shields.io/badge/license-ISC-blue.svg)](http://copyfree.org)
 

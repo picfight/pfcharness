@@ -2,9 +2,9 @@ package memwallet
 
 import (
 	"github.com/picfight/pfcd/chaincfg"
-	"github.com/picfight/pfcd/pfcec"
+	"github.com/picfight/pfcd/pfcec/secp256k1"
+	"github.com/picfight/pfcd/pfcutil"
 	"github.com/picfight/pfcd/wire"
-	"github.com/picfight/pfcutil"
 )
 
 const chainUpdateSignal = "chainUpdateSignal"
@@ -44,10 +44,10 @@ func (u *utxo) isMature(height int64) bool {
 }
 
 // keyToAddr maps the passed private to corresponding p2pkh address.
-func keyToAddr(key *secp256k1.PrivateKey, net *chaincfg.Params) (dcrutil.Address, error) {
+func keyToAddr(key *secp256k1.PrivateKey, net *chaincfg.Params) (pfcutil.Address, error) {
 	pubKey := (*secp256k1.PublicKey)(&key.PublicKey)
 	serializedKey := pubKey.SerializeCompressed()
-	pubKeyAddr, err := dcrutil.NewAddressSecpPubKey(serializedKey, net)
+	pubKeyAddr, err := pfcutil.NewAddressSecpPubKey(serializedKey, net)
 	if err != nil {
 		return nil, err
 	}

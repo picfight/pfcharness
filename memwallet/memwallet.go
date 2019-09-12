@@ -12,12 +12,12 @@ import (
 	"github.com/picfight/pfcd/blockchain"
 	"github.com/picfight/pfcd/chaincfg"
 	"github.com/picfight/pfcd/chaincfg/chainhash"
-	"github.com/picfight/pfcd/pfcec"
+	"github.com/picfight/pfcd/hdkeychain"
+	"github.com/picfight/pfcd/pfcec/secp256k1"
+	"github.com/picfight/pfcd/pfcutil"
 	"github.com/picfight/pfcd/rpcclient"
 	"github.com/picfight/pfcd/txscript"
 	"github.com/picfight/pfcd/wire"
-	"github.com/picfight/pfcutil"
-	"github.com/picfight/pfcutil/hdkeychain"
 )
 
 // InMemoryWallet is a simple in-memory wallet whose purpose is to provide basic
@@ -99,7 +99,7 @@ func (wallet *InMemoryWallet) Start(args *coinharness.TestWalletStartArgs) error
 		handlers.OnBlockDisconnected = wallet.UnwindBlock
 	}
 
-	//handlers.OnClientConnected = wallet.onDcrdConnect
+	//handlers.OnClientConnected = wallet.onPfcdConnect
 
 	wallet.nodeRPC = coinharness.NewRPCConnection(wallet.RPCClientFactory, args.NodeRPCConfig, 5, handlers)
 	pin.AssertNotNil("nodeRPC", wallet.nodeRPC)
@@ -108,7 +108,7 @@ func (wallet *InMemoryWallet) Start(args *coinharness.TestWalletStartArgs) error
 	// wallet.
 	wallet.updateTxFilter()
 
-	// Ensure dcrd properly dispatches our registered call-back for each new
+	// Ensure pfcd properly dispatches our registered call-back for each new
 	// block. Otherwise, the InMemoryWallet won't function properly.
 	err := wallet.nodeRPC.NotifyBlocks()
 	pin.CheckTestSetupMalfunction(err)
@@ -137,16 +137,15 @@ func (wallet *InMemoryWallet) Stop() {
 
 // Sync block until the wallet has fully synced up to the tip of the main
 // chain.
-func (wallet *InMemoryWallet) Sync() {
-	_, height, err := wallet.nodeRPC.Internal().(*rpcclient.Client).GetBestBlock()
-	pin.CheckTestSetupMalfunction(err)
+func (wallet *InMemoryWallet) Sync(desiredHeight int64) int64 {
 	ticker := time.NewTicker(time.Millisecond * 100)
 	for range ticker.C {
 		walletHeight := wallet.SyncedHeight()
-		if walletHeight == height {
+		if walletHeight >= desiredHeight {
 			break
 		}
 	}
+	return wallet.SyncedHeight()
 }
 
 // Dispose is no needed for InMemoryWallet
@@ -173,9 +172,9 @@ func (m *InMemoryWallet) IngestBlock(header []byte, filteredTxns [][]byte) {
 	}
 	height := int64(hdr.Height)
 
-	txns := make([]*dcrutil.Tx, 0, len(filteredTxns))
+	txns := make([]*pfcutil.Tx, 0, len(filteredTxns))
 	for _, txBytes := range filteredTxns {
-		tx, err := dcrutil.NewTxFromBytes(txBytes)
+		tx, err := pfcutil.NewTxFromBytes(txBytes)
 		if err != nil {
 			panic(err)
 		}
@@ -357,7 +356,7 @@ func (wallet *InMemoryWallet) unwindBlock(update *chainUpdate) {
 // newAddress returns a new address from the wallet's hd key chain.  It also
 // loads the address into the RPC client's transaction filter to ensure any
 // transactions that involve it are delivered via the notifications.
-func (wallet *InMemoryWallet) newAddress() (dcrutil.Address, error) {
+func (wallet *InMemoryWallet) newAddress() (pfcutil.Address, error) {
 	index := wallet.hdIndex
 
 	childKey, err := wallet.hdRoot.Child(index)
@@ -399,7 +398,7 @@ func (wallet *InMemoryWallet) NewAddress(_ *coinharness.NewAddressArgs) (coinhar
 		return nil, err
 	}
 
-	return &dcrharness.DCRAddress{Address: add}, nil
+	return &pfcharness.PFCAddress{Address: add}, nil
 }
 
 // fundTx attempts to fund a transaction sending amt coins.  The coins are
@@ -408,7 +407,7 @@ func (wallet *InMemoryWallet) NewAddress(_ *coinharness.NewAddressArgs) (coinhar
 // atoms-per-byte.
 //
 // NOTE: The InMemoryWallet's mutex must be held when this function is called.
-func (wallet *InMemoryWallet) fundTx(tx *wire.MsgTx, amt dcrutil.Amount, feeRate dcrutil.Amount) error {
+func (wallet *InMemoryWallet) fundTx(tx *wire.MsgTx, amt pfcutil.Amount, feeRate pfcutil.Amount) error {
 	const (
 		// spendSize is the largest number of bytes of a sigScript
 		// which spends a p2pkh output: OP_DATA_73 <sig> OP_DATA_33 <pubkey>
@@ -529,14 +528,14 @@ func (wallet *InMemoryWallet) CreateTransaction(args *coinharness.CreateTransact
 
 	// Tally up the total amount to be sent in order to perform coin
 	// selection shortly below.
-	var outputAmt dcrutil.Amount
+	var outputAmt pfcutil.Amount
 	for _, output := range args.Outputs {
-		outputAmt += dcrutil.Amount(output.Value())
-		tx.AddTxOut(output.(*dcrharness.OutputTx).Parent)
+		outputAmt += pfcutil.Amount(output.Value())
+		tx.AddTxOut(output.(*pfcharness.OutputTx).Parent)
 	}
 
 	// Attempt to fund the transaction with spendable utxos.
-	if err := wallet.fundTx(tx, outputAmt, dcrutil.Amount(args.FeeRate.(int))); err != nil {
+	if err := wallet.fundTx(tx, outputAmt, pfcutil.Amount(args.FeeRate.(int))); err != nil {
 		return nil, err
 	}
 
@@ -576,14 +575,14 @@ func (wallet *InMemoryWallet) CreateTransaction(args *coinharness.CreateTransact
 	for _, utxo := range spentOutputs {
 		utxo.isLocked = true
 	}
-	return &dcrharness.CreatedTransactionTx{tx}, nil
+	return &pfcharness.CreatedTransactionTx{tx}, nil
 }
 
 // UnlockOutputs unlocks any outputs which were previously locked due to
 // being selected to fund a transaction via the CreateTransaction method.
 //
 // This function is safe for concurrent access.
-func (wallet *InMemoryWallet) UnlockOutputs(inputs []coinharness.InputTx) {
+func (wallet *InMemoryWallet) UnlockOutputs(inputs []coinharness.InputTx) error {
 	wallet.Lock()
 	defer wallet.Unlock()
 
@@ -595,15 +594,17 @@ func (wallet *InMemoryWallet) UnlockOutputs(inputs []coinharness.InputTx) {
 
 		utxo.isLocked = false
 	}
+
+	return nil
 }
 
-// ConfirmedBalance returns the confirmed balance of the wallet.
+// GetBalance returns the confirmed balance of the wallet.
 //
 // This function is safe for concurrent access.
-func (wallet *InMemoryWallet) ConfirmedBalance() coinharness.CoinsAmount {
+func (wallet *InMemoryWallet) GetBalance(account string) (*coinharness.GetBalanceResult, error) {
 	wallet.RLock()
 	defer wallet.RUnlock()
-
+	result := &coinharness.GetBalanceResult{}
 	var balance pfcutil.Amount
 	for _, utxo := range wallet.utxos {
 		// Prevent any immature or locked outputs from contributing to
@@ -615,7 +616,8 @@ func (wallet *InMemoryWallet) ConfirmedBalance() coinharness.CoinsAmount {
 		balance += utxo.value
 	}
 
-	return balance
+	result.TotalSpendable = balance
+	return result, nil
 }
 
 func (wallet *InMemoryWallet) RPCClient() *coinharness.RPCConnection {
@@ -626,13 +628,21 @@ func (wallet *InMemoryWallet) CreateNewAccount(accountName string) error {
 	panic("")
 }
 
-func (wallet *InMemoryWallet) GetBalance(accountName string) (coinharness.CoinsAmount, error) {
-	panic("")
-}
-
 func (wallet *InMemoryWallet) GetNewAddress(accountName string) (coinharness.Address, error) {
 	panic("")
 }
 func (wallet *InMemoryWallet) ValidateAddress(address coinharness.Address) (*coinharness.ValidateAddressResult, error) {
 	panic("")
+}
+
+func (wallet *InMemoryWallet) WalletUnlock(password string, seconds int64) error {
+	return nil
+}
+func (wallet *InMemoryWallet) WalletInfo() (*coinharness.WalletInfoResult, error) {
+	return &coinharness.WalletInfoResult{
+		Unlocked: true,
+	}, nil
+}
+func (wallet *InMemoryWallet) WalletLock() error {
+	return nil
 }

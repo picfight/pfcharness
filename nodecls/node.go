@@ -10,7 +10,7 @@ import (
 
 // ConsoleNodeFactory produces a new ConsoleNode-instance upon request
 type ConsoleNodeFactory struct {
-	// NodeExecutablePathProvider returns path to the btcd executable
+	// NodeExecutablePathProvider returns path to the pfcd executable
 	NodeExecutablePathProvider commandline.ExecutablePathProvider
 	ConsoleCommandCook         PfcdConsoleCommandCook
 	RPCClientFactory           pfcharness.PfcRPCClientFactory

@@ -1,14 +1,14 @@
 package pfcharness
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/jfixby/coinharness"
 	"github.com/jfixby/pin"
+	"github.com/picfight/pfcd/pfcutil"
 	"github.com/picfight/pfcd/rpcclient"
-	"math"
 	"math/big"
-	"runtime"
 	"time"
 
 	"github.com/picfight/pfcd/blockchain"
@@ -16,7 +16,6 @@ import (
 	"github.com/picfight/pfcd/chaincfg/chainhash"
 	"github.com/picfight/pfcd/txscript"
 	"github.com/picfight/pfcd/wire"
-	"github.com/picfight/pfcutil"
 )
 
 // GenerateBlockArgs bundles GenerateBlock() arguments to minimize diff
@@ -174,64 +173,22 @@ func CreateBlock(prevBlock *pfcutil.Block, inclusionTxs []*pfcutil.Tx,
 // found true is returned and the nonce field of the passed header is updated
 // with the solution. False is returned if no solution exists.
 func solveBlock(header *wire.BlockHeader, targetDifficulty *big.Int) bool {
-	// sbResult is used by the solver goroutines to send results.
-	type sbResult struct {
-		found bool
-		nonce uint32
-	}
-
-	// solver accepts a block header and a nonce range to test. It is
-	// intended to be run as a goroutine.
-	quit := make(chan bool)
-	results := make(chan sbResult)
-	solver := func(hdr wire.BlockHeader, startNonce, stopNonce uint32) {
-		// We need to modify the nonce field of the header, so make sure
-		// we work with a copy of the original header.
-		for i := startNonce; i >= startNonce && i <= stopNonce; i++ {
-			select {
-			case <-quit:
-				return
-			default:
-				hdr.Nonce = i
-				hash := hdr.BlockHash()
-				if blockchain.HashToBig(&hash).Cmp(targetDifficulty) <= 0 {
-					select {
-					case results <- sbResult{true, i}:
-						return
-					case <-quit:
-						return
-					}
-				}
-			}
-		}
-		select {
-		case results <- sbResult{false, 0}:
-		case <-quit:
-			return
-		}
-	}
-
-	startNonce := uint32(0)
-	stopNonce := uint32(math.MaxUint32)
-	numCores := uint32(runtime.NumCPU())
-	noncesPerCore := (stopNonce - startNonce) / numCores
-	for i := uint32(0); i < numCores; i++ {
-		rangeStart := startNonce + (noncesPerCore * i)
-		rangeStop := startNonce + (noncesPerCore * (i + 1)) - 1
-		if i == numCores-1 {
-			rangeStop = stopNonce
-		}
-		go solver(*header, rangeStart, rangeStop)
-	}
-	for i := uint32(0); i < numCores; i++ {
-		result := <-results
-		if result.found {
-			close(quit)
-			header.Nonce = result.nonce
+	// Note that the entire extra nonce range is iterated and the offset is
+	// added relying on the fact that overflow will wrap around 0 as
+	// provided by the Go spec.
+	for i := uint32(0); ; i++ {
+		// Update the nonce and hash the block header.
+		header.Nonce = i
+		hash := header.BlockHash()
+		// The block is solved when the new block hash is less
+		// than the target difficulty.  Yay!
+		blockHash := blockchain.HashToBig(&hash)
+		if blockHash.Cmp(targetDifficulty) <= 0 {
+			pin.D("       blockHash", blockHash)
+			pin.D("targetDifficulty", targetDifficulty)
 			return true
 		}
 	}
-
 	return false
 }
 
@@ -250,8 +207,8 @@ const TxTreeRegular int8 = 0
 // createCoinbaseTx returns a coinbase transaction paying an appropriate
 // subsidy based on the passed block height to the provided address.
 func createCoinbaseTx(coinbaseScript []byte, nextBlockHeight int64,
-	addr dcrutil.Address, mineTo []wire.TxOut,
-	params *chaincfg.Params) (*dcrutil.Tx, error) {
+	addr pfcutil.Address, mineTo []wire.TxOut,
+	params *chaincfg.Params) (*pfcutil.Tx, error) {
 
 	tx := wire.NewMsgTx()
 	tx.AddTxIn(&wire.TxIn{
@@ -268,9 +225,9 @@ func createCoinbaseTx(coinbaseScript []byte, nextBlockHeight int64,
 	// Block one is a special block that might pay out tokens to a ledger.
 	if nextBlockHeight == 1 && len(params.BlockOneLedger) != 0 {
 		// Convert the addresses in the ledger into useable format.
-		addrs := make([]dcrutil.Address, len(params.BlockOneLedger))
+		addrs := make([]pfcutil.Address, len(params.BlockOneLedger))
 		for i, payout := range params.BlockOneLedger {
-			addr, err := dcrutil.DecodeAddress(payout.Address)
+			addr, err := pfcutil.DecodeAddress(payout.Address)
 			if err != nil {
 				return nil, err
 			}
@@ -291,7 +248,7 @@ func createCoinbaseTx(coinbaseScript []byte, nextBlockHeight int64,
 
 		tx.TxIn[0].ValueIn = params.BlockOneSubsidy()
 
-		return dcrutil.NewTx(tx), nil
+		return pfcutil.NewTx(tx), nil
 	}
 
 	subsidyCache := blockchain.NewSubsidyCache(0, params)
@@ -364,7 +321,7 @@ func createCoinbaseTx(coinbaseScript []byte, nextBlockHeight int64,
 		PkScript: pksSubsidy,
 	})
 
-	return dcrutil.NewTx(tx), nil
+	return pfcutil.NewTx(tx), nil
 }
 
 // standardCoinbaseOpReturn creates a standard OP_RETURN output to insert into
