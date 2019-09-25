@@ -3,8 +3,8 @@ package pfcharness
 import (
 	"fmt"
 	"github.com/picfight/pfcd/chaincfg/chainhash"
-	"github.com/picfight/pfcd/pfcjson"
-	"github.com/picfight/pfcd/pfcutil"
+	"github.com/picfight/pfcd/dcrjson"
+	"github.com/picfight/pfcd/dcrutil"
 	"github.com/picfight/pfcd/rpcclient"
 	"github.com/jfixby/coinharness"
 	"github.com/jfixby/pin"
@@ -84,15 +84,15 @@ func (c *RPCClient) AddNode(args *coinharness.AddNodeArguments) error {
 }
 
 func (c *RPCClient) LoadTxFilter(reload bool, addr []coinharness.Address) error {
-	addresses := []pfcutil.Address{}
+	addresses := []dcrutil.Address{}
 	for _, e := range addr {
-		addresses = append(addresses, e.Internal().(pfcutil.Address))
+		addresses = append(addresses, e.Internal().(dcrutil.Address))
 	}
 	return c.rpc.LoadTxFilter(reload, addresses, nil)
 }
 
 func (c *RPCClient) SubmitBlock(block coinharness.Block) error {
-	return c.rpc.SubmitBlock(block.(*pfcutil.Block), nil)
+	return c.rpc.SubmitBlock(block.(*dcrutil.Block), nil)
 }
 
 func (c *RPCClient) Disconnect() {
@@ -127,7 +127,7 @@ func (c *RPCClient) Internal() interface{} {
 }
 
 func (c *RPCClient) GetRawMempool(command interface{}) (result []coinharness.Hash, e error) {
-	list, e := c.rpc.GetRawMempool(command.(pfcjson.GetRawMempoolTxTypeCmd))
+	list, e := c.rpc.GetRawMempool(command.(dcrjson.GetRawMempoolTxTypeCmd))
 	if e != nil {
 		return nil, e
 	}
@@ -190,8 +190,8 @@ func (c *RPCClient) GetNewAddress(account string) (coinharness.Address, error) {
 }
 
 func (c *RPCClient) ValidateAddress(address coinharness.Address) (*coinharness.ValidateAddressResult, error) {
-	legacy, err := c.rpc.ValidateAddress(address.Internal().(pfcutil.Address))
-	// *pfcjson.ValidateAddressWalletResult
+	legacy, err := c.rpc.ValidateAddress(address.Internal().(dcrutil.Address))
+	// *dcrjson.ValidateAddressWalletResult
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +207,7 @@ func (c *RPCClient) ValidateAddress(address coinharness.Address) (*coinharness.V
 
 func (c *RPCClient) GetBalance() (*coinharness.GetBalanceResult, error) {
 	legacy, err := c.rpc.GetBalance("*")
-	// *pfcjson.ValidateAddressWalletResult
+	// *dcrjson.ValidateAddressWalletResult
 	if err != nil {
 		return nil, err
 	}

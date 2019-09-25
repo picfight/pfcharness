@@ -2,12 +2,12 @@ package pfcharness
 
 import (
 	"github.com/picfight/pfcd/chaincfg"
-	"github.com/picfight/pfcd/pfcutil"
+	"github.com/picfight/pfcd/dcrutil"
 	"github.com/jfixby/coinharness"
 )
 
 type Address struct {
-	Address pfcutil.Address
+	Address dcrutil.Address
 }
 
 func (c *Address) String() string {

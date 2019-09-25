@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/picfight/pfcd/pfcutil"
+	"github.com/picfight/pfcd/dcrutil"
 	"github.com/picfight/pfcd/rpcclient"
 	"github.com/jfixby/coinharness"
 	"github.com/jfixby/pin"
@@ -21,11 +21,11 @@ import (
 // GenerateBlockArgs bundles GenerateBlock() arguments to minimize diff
 // in case a new argument for the function is added
 type GenerateBlockArgs struct {
-	Txns          []*pfcutil.Tx
+	Txns          []*dcrutil.Tx
 	BlockVersion  int32
 	BlockTime     time.Time
 	MineTo        []wire.TxOut
-	MiningAddress pfcutil.Address
+	MiningAddress dcrutil.Address
 	Network       *chaincfg.Params
 }
 
@@ -35,7 +35,7 @@ type GenerateBlockArgs struct {
 // transactions to be mined. Additionally, a custom block version can be set by
 // the caller. An uninitialized time.Time should be used for the
 // blockTime parameter if one doesn't wish to set a custom time.
-func GenerateAndSubmitBlock(client coinharness.RPCClient, args *GenerateBlockArgs) (*pfcutil.Block, error) {
+func GenerateAndSubmitBlock(client coinharness.RPCClient, args *GenerateBlockArgs) (*dcrutil.Block, error) {
 	pin.AssertTrue("args.MineTo is empty", len(args.MineTo) == 0)
 	return GenerateAndSubmitBlockWithCustomCoinbaseOutputs(client, args)
 }
@@ -52,7 +52,7 @@ func GenerateAndSubmitBlock(client coinharness.RPCClient, args *GenerateBlockArg
 // submitted; thus, it is the caller's responsibility to ensure that the outputs
 // are correct. If the list is empty, the coinbase reward goes to the wallet
 // managed by the Harness.
-func GenerateAndSubmitBlockWithCustomCoinbaseOutputs(client coinharness.RPCClient, args *GenerateBlockArgs) (*pfcutil.Block, error) {
+func GenerateAndSubmitBlockWithCustomCoinbaseOutputs(client coinharness.RPCClient, args *GenerateBlockArgs) (*dcrutil.Block, error) {
 	txns := args.Txns
 	blockVersion := args.BlockVersion
 	pin.AssertTrue(fmt.Sprintf("Incorrect blockVersion(%v)", blockVersion), blockVersion > 0)
@@ -71,7 +71,7 @@ func GenerateAndSubmitBlockWithCustomCoinbaseOutputs(client coinharness.RPCClien
 	if err != nil {
 		return nil, err
 	}
-	prevBlock := pfcutil.NewBlock(mBlock)
+	prevBlock := dcrutil.NewBlock(mBlock)
 	mBlock.Header.Height = uint32(prevBlockHeight)
 
 	// Create a new block including the specified transactions
@@ -94,9 +94,9 @@ func GenerateAndSubmitBlockWithCustomCoinbaseOutputs(client coinharness.RPCClien
 // initialized), then the timestamp of the previous block will be used plus 1
 // second is used. Passing nil for the previous block results in a block that
 // builds off of the genesis block for the specified chain.
-func CreateBlock(prevBlock *pfcutil.Block, inclusionTxs []*pfcutil.Tx,
-	blockVersion int32, blockTime time.Time, miningAddr pfcutil.Address,
-	mineTo []wire.TxOut, net *chaincfg.Params) (*pfcutil.Block, error) {
+func CreateBlock(prevBlock *dcrutil.Block, inclusionTxs []*dcrutil.Tx,
+	blockVersion int32, blockTime time.Time, miningAddr dcrutil.Address,
+	mineTo []wire.TxOut, net *chaincfg.Params) (*dcrutil.Block, error) {
 
 	var (
 		prevHash      *chainhash.Hash
@@ -139,7 +139,7 @@ func CreateBlock(prevBlock *pfcutil.Block, inclusionTxs []*pfcutil.Tx,
 	}
 
 	// Create a new block ready to be solved.
-	blockTxns := []*pfcutil.Tx{coinbaseTx}
+	blockTxns := []*dcrutil.Tx{coinbaseTx}
 	if inclusionTxs != nil {
 		blockTxns = append(blockTxns, inclusionTxs...)
 	}
@@ -163,7 +163,7 @@ func CreateBlock(prevBlock *pfcutil.Block, inclusionTxs []*pfcutil.Tx,
 		return nil, errors.New("unable to solve block")
 	}
 
-	utilBlock := pfcutil.NewBlock(&block)
+	utilBlock := dcrutil.NewBlock(&block)
 	utilBlock.MsgBlock().Header.Height = uint32(blockHeight)
 	return utilBlock, nil
 }
@@ -207,8 +207,8 @@ const TxTreeRegular int8 = 0
 // createCoinbaseTx returns a coinbase transaction paying an appropriate
 // subsidy based on the passed block height to the provided address.
 func createCoinbaseTx(coinbaseScript []byte, nextBlockHeight int64,
-	addr pfcutil.Address, mineTo []wire.TxOut,
-	params *chaincfg.Params) (*pfcutil.Tx, error) {
+	addr dcrutil.Address, mineTo []wire.TxOut,
+	params *chaincfg.Params) (*dcrutil.Tx, error) {
 
 	tx := wire.NewMsgTx()
 	tx.AddTxIn(&wire.TxIn{
@@ -225,9 +225,9 @@ func createCoinbaseTx(coinbaseScript []byte, nextBlockHeight int64,
 	// Block one is a special block that might pay out tokens to a ledger.
 	if nextBlockHeight == 1 && len(params.BlockOneLedger) != 0 {
 		// Convert the addresses in the ledger into useable format.
-		addrs := make([]pfcutil.Address, len(params.BlockOneLedger))
+		addrs := make([]dcrutil.Address, len(params.BlockOneLedger))
 		for i, payout := range params.BlockOneLedger {
-			addr, err := pfcutil.DecodeAddress(payout.Address)
+			addr, err := dcrutil.DecodeAddress(payout.Address)
 			if err != nil {
 				return nil, err
 			}
@@ -248,7 +248,7 @@ func createCoinbaseTx(coinbaseScript []byte, nextBlockHeight int64,
 
 		tx.TxIn[0].ValueIn = params.BlockOneSubsidy()
 
-		return pfcutil.NewTx(tx), nil
+		return dcrutil.NewTx(tx), nil
 	}
 
 	subsidyCache := blockchain.NewSubsidyCache(0, params)
@@ -321,7 +321,7 @@ func createCoinbaseTx(coinbaseScript []byte, nextBlockHeight int64,
 		PkScript: pksSubsidy,
 	})
 
-	return pfcutil.NewTx(tx), nil
+	return dcrutil.NewTx(tx), nil
 }
 
 // standardCoinbaseOpReturn creates a standard OP_RETURN output to insert into
@@ -416,7 +416,7 @@ func TransactionRawToTx(wireTx *wire.MsgTx) *coinharness.MessageTx {
 }
 
 func PayToAddrScript(addr coinharness.Address) ([]byte, error) {
-	return txscript.PayToAddrScript(addr.Internal().(pfcutil.Address))
+	return txscript.PayToAddrScript(addr.Internal().(dcrutil.Address))
 }
 
 func TxSerializeSize(msg *coinharness.MessageTx) int {
