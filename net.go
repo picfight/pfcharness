@@ -2,10 +2,10 @@ package pfcharness
 
 import (
 	"fmt"
-	"github.com/picfight/pfcd/chaincfg"
 	"github.com/jfixby/coinharness"
 	"github.com/jfixby/pin"
 	"github.com/jfixby/pin/commandline"
+	"github.com/picfight/pfcd/chaincfg"
 )
 
 type Network struct {
@@ -31,9 +31,11 @@ func NetworkFor(net coinharness.Network) string {
 	if net.Params() == &chaincfg.RegNetParams {
 		return "regnet"
 	}
-	if net.Params() == &chaincfg.MainNetParams {
-		// no argument needed for the MainNet
+	if net.Params() == &chaincfg.PicFightCoinNetParams {
 		return commandline.NoArgument
+	}
+	if net.Params() == &chaincfg.DecredNetParams {
+		panic("network is not supported")
 	}
 
 	// should never reach this line, report violation
