@@ -2,24 +2,36 @@ package pfcharness
 
 import (
 	"fmt"
+	"github.com/picfight/pfcd/chaincfg"
 	"github.com/jfixby/coinharness"
 	"github.com/jfixby/pin"
 	"github.com/jfixby/pin/commandline"
-	"github.com/picfight/pfcd/chaincfg"
 )
+
+type Network struct {
+	Net *chaincfg.Params
+}
+
+func (n *Network) Params() interface{} {
+	return n.Net
+}
+
+func (n *Network) CoinbaseMaturity() int64 {
+	return int64(n.Net.CoinbaseMaturity)
+}
 
 // networkFor resolves network argument for node and wallet console commands
 func NetworkFor(net coinharness.Network) string {
-	if net == &chaincfg.SimNetParams {
+	if net.Params() == &chaincfg.SimNetParams {
 		return "simnet"
 	}
-	if net == &chaincfg.TestNet3Params {
+	if net.Params() == &chaincfg.TestNet3Params {
 		return "testnet"
 	}
-	if net == &chaincfg.RegNetParams {
+	if net.Params() == &chaincfg.RegNetParams {
 		return "regnet"
 	}
-	if net == &chaincfg.MainNetParams {
+	if net.Params() == &chaincfg.MainNetParams {
 		// no argument needed for the MainNet
 		return commandline.NoArgument
 	}

@@ -2,19 +2,19 @@ package pfcharness
 
 import (
 	"fmt"
-	"github.com/jfixby/coinharness"
-	"github.com/jfixby/pin"
-	"github.com/picfight/pfcd/chaincfg"
+	"github.com/picfight/pfcd/chaincfg/chainhash"
 	"github.com/picfight/pfcd/pfcjson"
 	"github.com/picfight/pfcd/pfcutil"
 	"github.com/picfight/pfcd/rpcclient"
+	"github.com/jfixby/coinharness"
+	"github.com/jfixby/pin"
 	"io/ioutil"
 )
 
-type PfcRPCClientFactory struct {
+type RPCClientFactory struct {
 }
 
-func (f *PfcRPCClientFactory) NewRPCConnection(config coinharness.RPCConnectionConfig, handlers coinharness.RPCClientNotificationHandlers) (coinharness.RPCClient, error) {
+func (f *RPCClientFactory) NewRPCConnection(config coinharness.RPCConnectionConfig, handlers coinharness.RPCClientNotificationHandlers) (coinharness.RPCClient, error) {
 	var h *rpcclient.NotificationHandlers
 	if handlers != nil {
 		h = handlers.(*rpcclient.NotificationHandlers)
@@ -38,31 +38,80 @@ func (f *PfcRPCClientFactory) NewRPCConnection(config coinharness.RPCConnectionC
 	return NewRPCClient(cfg, h)
 }
 
-type PFCPCClient struct {
+func NewRPCClient(config *rpcclient.ConnConfig, handlers *rpcclient.NotificationHandlers) (coinharness.RPCClient, error) {
+	legacy, err := rpcclient.New(config, handlers)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &RPCClient{rpc: legacy}
+	return result, nil
+}
+
+type RPCClient struct {
 	rpc *rpcclient.Client
 }
 
-func (c *PFCPCClient) AddNode(args *coinharness.AddNodeArguments) error {
+func (c *RPCClient) ListUnspent() ([]*coinharness.Unspent, error) {
+	result, err := c.rpc.ListUnspent()
+	if err != nil {
+		return nil, err
+	}
+	var r []*coinharness.Unspent
+	for _, e := range result {
+		x := &coinharness.Unspent{}
+
+		x.TxID = e.TxID
+		x.Vout = e.Vout
+		x.Tree = e.Tree
+		x.TxType = e.TxType
+		x.Address = e.Address
+		x.Account = e.Account
+		x.ScriptPubKey = e.ScriptPubKey
+		x.RedeemScript = e.RedeemScript
+		x.Amount = coinharness.CoinsAmountFromFloat(e.Amount)
+		x.Confirmations = e.Confirmations
+		x.Spendable = e.Spendable
+
+		r = append(r, x)
+	}
+
+	return r, nil
+}
+
+func (c *RPCClient) AddNode(args *coinharness.AddNodeArguments) error {
 	return c.rpc.AddNode(args.TargetAddr, args.Command.(rpcclient.AddNodeCommand))
 }
 
-func (c *PFCPCClient) Disconnect() {
+func (c *RPCClient) LoadTxFilter(reload bool, addr []coinharness.Address) error {
+	addresses := []pfcutil.Address{}
+	for _, e := range addr {
+		addresses = append(addresses, e.Internal().(pfcutil.Address))
+	}
+	return c.rpc.LoadTxFilter(reload, addresses, nil)
+}
+
+func (c *RPCClient) SubmitBlock(block coinharness.Block) error {
+	return c.rpc.SubmitBlock(block.(*pfcutil.Block), nil)
+}
+
+func (c *RPCClient) Disconnect() {
 	c.rpc.Disconnect()
 }
 
-func (c *PFCPCClient) Shutdown() {
+func (c *RPCClient) Shutdown() {
 	c.rpc.Shutdown()
 }
 
-func (c *PFCPCClient) NotifyBlocks() error {
+func (c *RPCClient) NotifyBlocks() error {
 	return c.rpc.NotifyBlocks()
 }
 
-func (c *PFCPCClient) GetBlockCount() (int64, error) {
+func (c *RPCClient) GetBlockCount() (int64, error) {
 	return c.rpc.GetBlockCount()
 }
 
-func (c *PFCPCClient) Generate(blocks uint32) (result []coinharness.Hash, e error) {
+func (c *RPCClient) Generate(blocks uint32) (result []coinharness.Hash, e error) {
 	list, e := c.rpc.Generate(blocks)
 	if e != nil {
 		return nil, e
@@ -73,11 +122,11 @@ func (c *PFCPCClient) Generate(blocks uint32) (result []coinharness.Hash, e erro
 	return result, nil
 }
 
-func (c *PFCPCClient) Internal() interface{} {
+func (c *RPCClient) Internal() interface{} {
 	return c.rpc
 }
 
-func (c *PFCPCClient) GetRawMempool(command interface{}) (result []coinharness.Hash, e error) {
+func (c *RPCClient) GetRawMempool(command interface{}) (result []coinharness.Hash, e error) {
 	list, e := c.rpc.GetRawMempool(command.(pfcjson.GetRawMempoolTxTypeCmd))
 	if e != nil {
 		return nil, e
@@ -88,13 +137,33 @@ func (c *PFCPCClient) GetRawMempool(command interface{}) (result []coinharness.H
 	return result, nil
 }
 
-func (c *PFCPCClient) SendRawTransaction(tx coinharness.CreatedTransactionTx, allowHighFees bool) (result coinharness.Hash, e error) {
+func (c *RPCClient) SendRawTransaction(tx *coinharness.MessageTx, allowHighFees bool) (result coinharness.Hash, e error) {
 	txx := TransactionTxToRaw(tx)
 	r, e := c.rpc.SendRawTransaction(txx, allowHighFees)
 	return r, e
 }
 
-func (c *PFCPCClient) GetPeerInfo() ([]coinharness.PeerInfo, error) {
+func (c *RPCClient) GetBlock(hash coinharness.Hash) (*coinharness.MsgBlock, error) {
+	block, err := c.rpc.GetBlock(hash.(*chainhash.Hash)) //*wire.MsgBlock
+	if err != nil {
+		return nil, err
+	}
+
+	b := &coinharness.MsgBlock{}
+
+	ttx := []*coinharness.MessageTx{}
+	for _, ti := range block.Transactions {
+		ttx = append(ttx,
+			TransactionRawToTx(ti),
+		)
+	}
+
+	b.Transactions = ttx
+
+	return b, nil
+}
+
+func (c *RPCClient) GetPeerInfo() ([]coinharness.PeerInfo, error) {
 	pif, err := c.rpc.GetPeerInfo()
 	if err != nil {
 		return nil, err
@@ -110,27 +179,17 @@ func (c *PFCPCClient) GetPeerInfo() ([]coinharness.PeerInfo, error) {
 	return l, nil
 }
 
-func NewRPCClient(config *rpcclient.ConnConfig, handlers *rpcclient.NotificationHandlers) (coinharness.RPCClient, error) {
-	legacy, err := rpcclient.New(config, handlers)
-	if err != nil {
-		return nil, err
-	}
-
-	result := &PFCPCClient{rpc: legacy}
-	return result, nil
-}
-
-func (c *PFCPCClient) GetNewAddress(account string) (coinharness.Address, error) {
+func (c *RPCClient) GetNewAddress(account string) (coinharness.Address, error) {
 	legacy, err := c.rpc.GetNewAddress(account)
 	if err != nil {
 		return nil, err
 	}
 
-	result := &PFCAddress{Address: legacy}
+	result := &Address{Address: legacy}
 	return result, nil
 }
 
-func (c *PFCPCClient) ValidateAddress(address coinharness.Address) (*coinharness.ValidateAddressResult, error) {
+func (c *RPCClient) ValidateAddress(address coinharness.Address) (*coinharness.ValidateAddressResult, error) {
 	legacy, err := c.rpc.ValidateAddress(address.Internal().(pfcutil.Address))
 	// *pfcjson.ValidateAddressWalletResult
 	if err != nil {
@@ -146,32 +205,66 @@ func (c *PFCPCClient) ValidateAddress(address coinharness.Address) (*coinharness
 	return result, nil
 }
 
-func (c *PFCPCClient) GetBalance(account string) (*coinharness.GetBalanceResult, error) {
-	legacy, err := c.rpc.GetBalance(account)
+func (c *RPCClient) GetBalance() (*coinharness.GetBalanceResult, error) {
+	legacy, err := c.rpc.GetBalance("*")
 	// *pfcjson.ValidateAddressWalletResult
 	if err != nil {
 		return nil, err
 	}
 	result := &coinharness.GetBalanceResult{
-		BlockHash:      legacy.BlockHash,
-		TotalSpendable: legacy.TotalSpendable,
+		BlockHash: legacy.BlockHash,
+		//TotalSpendable:   coinharness.CoinsAmountFromFloat(legacy.TotalSpendable),
+		//TotalUnconfirmed: coinharness.CoinsAmountFromFloat(legacy.TotalUnconfirmed),
+		//
+		//CumulativeTotal:              coinharness.CoinsAmountFromFloat(legacy.CumulativeTotal),
+		//TotalVotingAuthority:         coinharness.CoinsAmountFromFloat(legacy.TotalVotingAuthority),
+		//TotalLockedByTickets:         coinharness.CoinsAmountFromFloat(legacy.TotalLockedByTickets),
+		//TotalImmatureStakeGeneration: coinharness.CoinsAmountFromFloat(legacy.TotalImmatureStakeGeneration),
+		//TotalImmatureCoinbaseRewards: coinharness.CoinsAmountFromFloat(legacy.TotalImmatureCoinbaseRewards),
 	}
+	result.Balances = make(map[string]coinharness.GetAccountBalanceResult)
+	for _, v := range legacy.Balances {
+		x := coinharness.GetAccountBalanceResult{
+			AccountName:             v.AccountName,
+			Total:                   coinharness.CoinsAmountFromFloat(v.Total),
+			Spendable:               coinharness.CoinsAmountFromFloat(v.Spendable),
+			Unconfirmed:             coinharness.CoinsAmountFromFloat(v.Unconfirmed),
+			LockedByTickets:         coinharness.CoinsAmountFromFloat(v.LockedByTickets),
+			VotingAuthority:         coinharness.CoinsAmountFromFloat(v.VotingAuthority),
+			ImmatureCoinbaseRewards: coinharness.CoinsAmountFromFloat(v.ImmatureCoinbaseRewards),
+		}
+		result.Balances[v.AccountName] = x
+	}
+
 	return result, nil
 }
 
-func (c *PFCPCClient) GetBestBlock() (coinharness.Hash, int64, error) {
+func (c *RPCClient) GetBestBlock() (coinharness.Hash, int64, error) {
 	return c.rpc.GetBestBlock()
 }
 
-func (c *PFCPCClient) CreateNewAccount(account string) error {
+func (c *RPCClient) ListAccounts() (map[string]coinharness.CoinsAmount, error) {
+	l, err := c.rpc.ListAccounts()
+	if err != nil {
+		return nil, err
+	}
+
+	r := make(map[string]coinharness.CoinsAmount)
+	for k, v := range l {
+		r[k] = coinharness.CoinsAmount{int64(v)}
+	}
+	return r, nil
+}
+
+func (c *RPCClient) CreateNewAccount(account string) error {
 	return c.rpc.CreateNewAccount(account)
 }
 
-func (c *PFCPCClient) WalletLock() error {
+func (c *RPCClient) WalletLock() error {
 	return c.rpc.WalletLock()
 }
 
-func (c *PFCPCClient) WalletInfo() (*coinharness.WalletInfoResult, error) {
+func (c *RPCClient) WalletInfo() (*coinharness.WalletInfoResult, error) {
 	r, err := c.rpc.WalletInfo()
 	if err != nil {
 		return nil, err
@@ -184,35 +277,15 @@ func (c *PFCPCClient) WalletInfo() (*coinharness.WalletInfoResult, error) {
 	return result, nil
 }
 
-func (c *PFCPCClient) WalletUnlock(passphrase string, timeoutSecs int64) error {
+func (c *RPCClient) WalletUnlock(passphrase string, timeoutSecs int64) error {
 	return c.rpc.WalletPassphrase(passphrase, timeoutSecs)
 }
 
-func (c *PFCPCClient) CreateTransaction(*coinharness.CreateTransactionArgs) (coinharness.CreatedTransactionTx, error) {
-	panic("")
-}
-
-func (c *PFCPCClient) GetBuildVersion() (coinharness.BuildVersion, error) {
+func (c *RPCClient) GetBuildVersion() (coinharness.BuildVersion, error) {
 	//legacy, err := c.rpc.GetBuildVersion()
 	//if err != nil {
 	//	return nil, err
 	//}
 	//return legacy, nil
 	return nil, fmt.Errorf("decred does not support this feature (GetBuildVersion)")
-}
-
-type PFCAddress struct {
-	Address pfcutil.Address
-}
-
-func (c *PFCAddress) String() string {
-	return c.Address.String()
-}
-
-func (c *PFCAddress) Internal() interface{} {
-	return c.Address
-}
-
-func (c *PFCAddress) IsForNet(net coinharness.Network) bool {
-	return c.Address.IsForNet(net.(*chaincfg.Params))
 }
