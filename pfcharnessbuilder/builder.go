@@ -35,8 +35,10 @@ func fileGenerator(data string) string {
 	//data = coinknife.Replace(data, "decred/dcrd", "picfight/pfcd")
 	//data = coinknife.Replace(data, "github.com/decred/dcrd", "github.com/picfight/dcrd")
 	data = coinknife.Replace(data, "decred/dcrd", "picfight/pfcd")
+	data = coinknife.Replace(data, "decred/dcrwallet", "picfight/pfcwallet")
 	data = coinknife.Replace(data, "dcrharness", "pfcharness")
 	data = coinknife.Replace(data, "dcrd", "pfcd")
+	data = coinknife.Replace(data, "dcrwallet", "pfcwallet")
 	return data
 }
 
@@ -188,9 +190,7 @@ func processableFiles(file string) bool {
 	if strings.HasSuffix(file, ".toml") {
 		return false
 	}
-	if strings.HasSuffix(file, ".md") {
-		return false
-	}
+
 	if strings.HasSuffix(file, ".xml") {
 		return false
 	}
@@ -224,6 +224,9 @@ func processableFiles(file string) bool {
 		return true
 	}
 	if strings.HasSuffix(file, ".go") {
+		return true
+	}
+	if strings.HasSuffix(file, ".md") {
 		return true
 	}
 
