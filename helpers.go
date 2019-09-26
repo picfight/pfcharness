@@ -4,10 +4,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/picfight/pfcd/dcrutil"
-	"github.com/picfight/pfcd/rpcclient"
 	"github.com/jfixby/coinharness"
 	"github.com/jfixby/pin"
+	"github.com/picfight/pfcd/dcrutil"
+	"github.com/picfight/pfcd/rpcclient"
 	"math/big"
 	"time"
 
@@ -341,10 +341,10 @@ func standardCoinbaseOpReturn(height int64, extraNonce uint64) ([]byte, error) {
 func TransactionTxToRaw(chTx *coinharness.MessageTx) *wire.MsgTx {
 	wireTx := &wire.MsgTx{
 		//CachedHash: chTx.CachedHash.(*chainhash.Hash),
-		SerType:    wire.TxSerializeType(chTx.SerType),
-		Version:    uint16(chTx.Version),
-		LockTime:   chTx.LockTime,
-		Expiry:     chTx.Expiry,
+		SerType:  wire.TxSerializeType(chTx.SerType),
+		Version:  uint16(chTx.Version),
+		LockTime: chTx.LockTime,
+		Expiry:   chTx.Expiry,
 	}
 	for _, ti := range chTx.TxIn {
 		wireTx.TxIn = append(wireTx.TxIn,
@@ -378,10 +378,10 @@ func TransactionRawToTx(wireTx *wire.MsgTx) *coinharness.MessageTx {
 	wireTx = wireTx.Copy()
 	chTx := &coinharness.MessageTx{
 		//CachedHash: wireTx.CachedHash,
-		SerType:    uint16(wireTx.SerType),
-		Version:    int32(wireTx.Version),
-		LockTime:   wireTx.LockTime,
-		Expiry:     wireTx.Expiry,
+		SerType:  uint16(wireTx.SerType),
+		Version:  int32(wireTx.Version),
+		LockTime: wireTx.LockTime,
+		Expiry:   wireTx.Expiry,
 	}
 	for _, ti := range wireTx.TxIn {
 		chTx.TxIn = append(chTx.TxIn,

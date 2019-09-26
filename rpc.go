@@ -2,23 +2,20 @@ package pfcharness
 
 import (
 	"fmt"
+	"github.com/jfixby/coinharness"
+	"github.com/jfixby/pin"
 	"github.com/picfight/pfcd/chaincfg/chainhash"
 	"github.com/picfight/pfcd/dcrjson"
 	"github.com/picfight/pfcd/dcrutil"
 	"github.com/picfight/pfcd/rpcclient"
-	"github.com/jfixby/coinharness"
-	"github.com/jfixby/pin"
 	"io/ioutil"
 )
 
 type RPCClientFactory struct {
 }
 
-func (f *RPCClientFactory) NewRPCConnection(config coinharness.RPCConnectionConfig, handlers coinharness.RPCClientNotificationHandlers) (coinharness.RPCClient, error) {
-	var h *rpcclient.NotificationHandlers
-	if handlers != nil {
-		h = handlers.(*rpcclient.NotificationHandlers)
-	}
+func (f *RPCClientFactory) NewRPCConnection(config coinharness.RPCConnectionConfig, handlers *coinharness.NotificationHandlers) (coinharness.RPCClient, error) {
+	h := ConvertHandlers(handlers)
 
 	file := config.CertificateFile
 	fmt.Println("reading: " + file)
@@ -36,6 +33,152 @@ func (f *RPCClientFactory) NewRPCConnection(config coinharness.RPCConnectionConf
 	}
 
 	return NewRPCClient(cfg, h)
+}
+
+func ConvertHandlers(handlers *coinharness.NotificationHandlers) *rpcclient.NotificationHandlers {
+	if handlers == nil {
+		return nil
+	}
+	return &rpcclient.NotificationHandlers{
+		//
+		OnClientConnected: handlers.OnClientConnected,
+		//
+		OnBlockConnected: handlers.OnBlockConnected,
+		//
+		OnBlockDisconnected: handlers.OnBlockDisconnected,
+		//
+		OnRelevantTxAccepted: handlers.OnRelevantTxAccepted,
+		//
+		OnWinningTickets: func(
+			blockHash *chainhash.Hash,
+			blockHeight int64,
+			tickets []*chainhash.Hash,
+		) {
+			ts := []coinharness.Hash{}
+			for _, e := range tickets {
+				ts = append(ts, e)
+			}
+			handlers.OnWinningTickets(
+				blockHash,
+				blockHeight,
+				ts,
+			)
+		},
+		//
+		OnSpentAndMissedTickets: func(
+			hash *chainhash.Hash,
+			height int64,
+			stakeDiff int64,
+			tickets map[chainhash.Hash]bool,
+		) {
+			ts := make(map[coinharness.Hash]bool)
+			for k, v := range tickets {
+				ts[k] = v
+			}
+			handlers.OnSpentAndMissedTickets(
+				hash,
+				height,
+				stakeDiff,
+				ts,
+			)
+		},
+		//
+		OnNewTickets: func(
+			hash *chainhash.Hash,
+			height int64,
+			stakeDiff int64,
+			tickets []*chainhash.Hash,
+		) {
+			ts := []coinharness.Hash{}
+			for _, e := range tickets {
+				ts = append(ts, e)
+			}
+			handlers.OnNewTickets(
+				hash,
+				height,
+				stakeDiff,
+				ts,
+			)
+
+		},
+		//
+		OnStakeDifficulty: func(
+			hash *chainhash.Hash,
+			height int64,
+			stakeDiff int64,
+		) {
+			handlers.OnStakeDifficulty(
+				hash,
+				height,
+				stakeDiff,
+			)
+		},
+		//
+		OnTxAccepted: func(
+			hash *chainhash.Hash,
+			amount dcrutil.Amount,
+		) {
+			handlers.OnTxAccepted(
+				hash,
+				coinharness.CoinsAmount{int64(amount)},
+			)
+		},
+		//
+		//OnTxAcceptedVerbose:     handlers.OnTxAcceptedVerbose,
+		OnDcrdConnected: handlers.OnNodeConnected,
+		//
+		OnAccountBalance: func(
+			account string,
+			balance dcrutil.Amount,
+			confirmed bool,
+		) {
+			handlers.OnAccountBalance(
+				account,
+				coinharness.CoinsAmount{int64(balance)},
+				confirmed,
+			)
+		},
+		//
+		OnWalletLockState: handlers.OnWalletLockState,
+		//
+		OnTicketsPurchased: func(
+			TxHash *chainhash.Hash,
+			amount dcrutil.Amount,
+		) {
+			handlers.OnTicketsPurchased(
+				TxHash,
+				coinharness.CoinsAmount{int64(amount)},
+			)
+		},
+		//
+		OnVotesCreated: func(
+			txHash *chainhash.Hash,
+			blockHash *chainhash.Hash,
+			height int32,
+			sstxIn *chainhash.Hash,
+			voteBits uint16,
+		) {
+			handlers.OnVotesCreated(
+				txHash,
+				blockHash,
+				height,
+				sstxIn,
+				voteBits,
+			)
+		},
+		//
+		OnRevocationsCreated: func(
+			txHash *chainhash.Hash,
+			sstxIn *chainhash.Hash,
+		) {
+			handlers.OnRevocationsCreated(
+				txHash,
+				sstxIn,
+			)
+		},
+		//
+		OnUnknownNotification: handlers.OnUnknownNotification,
+	}
 }
 
 func NewRPCClient(config *rpcclient.ConnConfig, handlers *rpcclient.NotificationHandlers) (coinharness.RPCClient, error) {

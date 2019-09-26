@@ -2,8 +2,8 @@ package pfcharness
 
 import (
 	"encoding/binary"
-	"github.com/picfight/pfcd/chaincfg/chainhash"
 	"github.com/jfixby/coinharness"
+	"github.com/picfight/pfcd/chaincfg/chainhash"
 )
 
 // hdSeed is the BIP 32 seed used by the InMemoryWallet to initialize it's
