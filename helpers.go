@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/jfixby/coinamount"
 	"github.com/jfixby/coinharness"
 	"github.com/jfixby/pin"
 	"github.com/picfight/pfcd/dcrutil"
@@ -386,7 +387,7 @@ func TransactionRawToTx(wireTx *wire.MsgTx) *coinharness.MessageTx {
 	for _, ti := range wireTx.TxIn {
 		chTx.TxIn = append(chTx.TxIn,
 			&coinharness.TxIn{
-				ValueIn:         coinharness.CoinsAmount{ti.ValueIn},
+				ValueIn:         coinamount.CoinsAmount{ti.ValueIn},
 				SignatureScript: ti.SignatureScript,
 				BlockHeight:     ti.BlockHeight,
 				BlockIndex:      ti.BlockIndex,
@@ -401,7 +402,7 @@ func TransactionRawToTx(wireTx *wire.MsgTx) *coinharness.MessageTx {
 	for _, to := range wireTx.TxOut {
 		chTx.TxOut = append(chTx.TxOut,
 			&coinharness.TxOut{
-				Value:    coinharness.CoinsAmount{to.Value},
+				Value:    coinamount.CoinsAmount{to.Value},
 				Version:  to.Version,
 				PkScript: to.PkScript,
 			},
