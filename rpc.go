@@ -2,7 +2,7 @@ package pfcharness
 
 import (
 	"fmt"
-	"github.com/jfixby/coinamount"
+	"github.com/jfixby/coin"
 	"github.com/jfixby/coinharness"
 	"github.com/jfixby/pin"
 	"github.com/picfight/pfcd/chaincfg/chainhash"
@@ -121,7 +121,7 @@ func ConvertHandlers(handlers *coinharness.NotificationHandlers) *rpcclient.Noti
 		) {
 			handlers.OnTxAccepted(
 				hash,
-				coinamount.CoinsAmount{int64(amount)},
+				coin.Amount{int64(amount)},
 			)
 		},
 		//
@@ -135,7 +135,7 @@ func ConvertHandlers(handlers *coinharness.NotificationHandlers) *rpcclient.Noti
 		) {
 			handlers.OnAccountBalance(
 				account,
-				coinamount.CoinsAmount{int64(balance)},
+				coin.Amount{int64(balance)},
 				confirmed,
 			)
 		},
@@ -148,7 +148,7 @@ func ConvertHandlers(handlers *coinharness.NotificationHandlers) *rpcclient.Noti
 		) {
 			handlers.OnTicketsPurchased(
 				TxHash,
-				coinamount.CoinsAmount{int64(amount)},
+				coin.Amount{int64(amount)},
 			)
 		},
 		//
@@ -213,7 +213,7 @@ func (c *RPCClient) ListUnspent() ([]*coinharness.Unspent, error) {
 		x.Account = e.Account
 		x.ScriptPubKey = e.ScriptPubKey
 		x.RedeemScript = e.RedeemScript
-		x.Amount = coinamount.CoinsAmountFromFloat(e.Amount)
+		x.Amount = coin.FromFloat(e.Amount)
 		x.Confirmations = e.Confirmations
 		x.Spendable = e.Spendable
 
@@ -357,25 +357,25 @@ func (c *RPCClient) GetBalance() (*coinharness.GetBalanceResult, error) {
 	}
 	result := &coinharness.GetBalanceResult{
 		BlockHash: legacy.BlockHash,
-		//TotalSpendable:   coinamount.CoinsAmountFromFloat(legacy.TotalSpendable),
-		//TotalUnconfirmed: coinamount.CoinsAmountFromFloat(legacy.TotalUnconfirmed),
+		//TotalSpendable:   coin.FromFloat(legacy.TotalSpendable),
+		//TotalUnconfirmed: coin.FromFloat(legacy.TotalUnconfirmed),
 		//
-		//CumulativeTotal:              coinamount.CoinsAmountFromFloat(legacy.CumulativeTotal),
-		//TotalVotingAuthority:         coinamount.CoinsAmountFromFloat(legacy.TotalVotingAuthority),
-		//TotalLockedByTickets:         coinamount.CoinsAmountFromFloat(legacy.TotalLockedByTickets),
-		//TotalImmatureStakeGeneration: coinamount.CoinsAmountFromFloat(legacy.TotalImmatureStakeGeneration),
-		//TotalImmatureCoinbaseRewards: coinamount.CoinsAmountFromFloat(legacy.TotalImmatureCoinbaseRewards),
+		//CumulativeTotal:              coin.FromFloat(legacy.CumulativeTotal),
+		//TotalVotingAuthority:         coin.FromFloat(legacy.TotalVotingAuthority),
+		//TotalLockedByTickets:         coin.FromFloat(legacy.TotalLockedByTickets),
+		//TotalImmatureStakeGeneration: coin.FromFloat(legacy.TotalImmatureStakeGeneration),
+		//TotalImmatureCoinbaseRewards: coin.FromFloat(legacy.TotalImmatureCoinbaseRewards),
 	}
 	result.Balances = make(map[string]coinharness.GetAccountBalanceResult)
 	for _, v := range legacy.Balances {
 		x := coinharness.GetAccountBalanceResult{
 			AccountName:             v.AccountName,
-			Total:                   coinamount.CoinsAmountFromFloat(v.Total),
-			Spendable:               coinamount.CoinsAmountFromFloat(v.Spendable),
-			Unconfirmed:             coinamount.CoinsAmountFromFloat(v.Unconfirmed),
-			LockedByTickets:         coinamount.CoinsAmountFromFloat(v.LockedByTickets),
-			VotingAuthority:         coinamount.CoinsAmountFromFloat(v.VotingAuthority),
-			ImmatureCoinbaseRewards: coinamount.CoinsAmountFromFloat(v.ImmatureCoinbaseRewards),
+			Total:                   coin.FromFloat(v.Total),
+			Spendable:               coin.FromFloat(v.Spendable),
+			Unconfirmed:             coin.FromFloat(v.Unconfirmed),
+			LockedByTickets:         coin.FromFloat(v.LockedByTickets),
+			VotingAuthority:         coin.FromFloat(v.VotingAuthority),
+			ImmatureCoinbaseRewards: coin.FromFloat(v.ImmatureCoinbaseRewards),
 		}
 		result.Balances[v.AccountName] = x
 	}
@@ -387,15 +387,15 @@ func (c *RPCClient) GetBestBlock() (coinharness.Hash, int64, error) {
 	return c.rpc.GetBestBlock()
 }
 
-func (c *RPCClient) ListAccounts() (map[string]coinamount.CoinsAmount, error) {
+func (c *RPCClient) ListAccounts() (map[string]coin.Amount, error) {
 	l, err := c.rpc.ListAccounts()
 	if err != nil {
 		return nil, err
 	}
 
-	r := make(map[string]coinamount.CoinsAmount)
+	r := make(map[string]coin.Amount)
 	for k, v := range l {
-		r[k] = coinamount.CoinsAmount{int64(v)}
+		r[k] = coin.Amount{int64(v)}
 	}
 	return r, nil
 }
