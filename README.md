@@ -9,6 +9,14 @@ PicFight harness
 
  - [nodecls](https://github.com/picfight/pfcharness/tree/master/nodecls)
  Provides wrapper that launches a new `pfcd`-instance using command-line call.
+ 
+ ## Build
+ ```
+ set GO111MODULE=on
+ go build ./...
+ go clean -testcache
+ go test ./...
+```
 
  ## License
  This code is licensed under the [copyfree](http://copyfree.org) ISC License.
